@@ -5,13 +5,13 @@
 ![JavaScript](https://img.shields.io/badge/Frontend-ES6%20Modules-yellow?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey?style=for-the-badge)
 
-A comprehensive demonstration platform for **Lakera Demo**, showcasing advanced AI security capabilities through real-time prompt analysis, comprehensive threat detection, and interactive visualization tools.
+A demonstration platform for **Lakera Guard**, showcasing AI/LLM security capabilities through real-time prompt analysis, threat detection, and interactive visualization tools.
 
 ---
 
 ## Overview
 
-Lakera Demo is a full-featured web application designed to demonstrate the power of the Lakera Demo security platform. The application provides security professionals and AI developers with a hands-on environment to test, analyze, and understand LLM security vulnerabilities through an intuitive interface.
+This is a full-featured web application designed to demonstrate the power of the Lakera Guard security platform. It provides security professionals and AI developers with a hands-on environment to test, analyze, and understand LLM security vulnerabilities through an intuitive interface. Access is protected by a login screen (Flask-Login); an initial admin user is seeded from environment variables on first run.
 
 ### Key Capabilities
 
@@ -66,19 +66,26 @@ Lakera Demo is a full-featured web application designed to demonstrate the power
 
 **AI Integration**
 
-- **Lakera Demo**: Primary security scanning engine
+- **Lakera Guard**: Primary security scanning engine (inbound + outbound)
 - **OpenAI**: GPT model integration for response generation
 - **Azure OpenAI**: Enterprise OpenAI deployment support
 - **Google Gemini**: Google's generative AI model support
 - **Ollama**: Local LLM support for privacy-focused testing
 
+**Benchmarking Engines**
+
+- **Azure AI Content Safety**: cloud baseline comparison (`azure-ai-contentsafety`)
+- **LLM Guard**: open-source toolkit comparison, run locally (`llm-guard`; models lazy-load on first use)
+
 ### Security Features
 
+- Login-protected UI (Flask-Login) — all pages require authentication
 - Inbound prompt scanning to detect injection attacks before LLM processing
 - Outbound response scanning to identify data leakage or harmful content
 - Multi-detector threat identification (PII, prompt injection, jailbreak attempts)
 - Real-time threat categorization and attack vector classification
-- Persistent logging for security auditing and compliance requirements
+- Persistent logging (SQLite) for security auditing and compliance requirements
+- Per-IP rate limiting (Flask-Limiter, in-memory or Redis-backed)
 
 ---
 
@@ -89,31 +96,27 @@ Lakera Demo is a full-featured web application designed to demonstrate the power
 Before installation, ensure you have the following:
 
 - **Python 3.11 or higher**: Required for application runtime
-- **Demo API Key**: Obtain from the platform
+- **Lakera Guard API Key**: Obtain from the [Lakera platform](https://platform.lakera.ai/)
 - **Optional LLM API Keys**: For OpenAI, Azure OpenAI, or Google Gemini integration
 - **Ollama** (optional): For local LLM testing (requires running instance)
 - **Docker** (optional): For containerized deployment
 
 ### CI/CD Pipeline
 
-This project uses GitHub Actions for Continuous Integration and Deployment.
+This project uses GitHub Actions (`.github/workflows/ci.yml`).
 
-- **Test**: Runs unit tests and linting.
+- **Test**: Runs pytest (with coverage) and flake8 linting on Python 3.11.
 - **Security**: Scans for vulnerabilities using Trivy.
-- **Build & Push**: Builds Docker image and pushes to GitHub Container Registry (GHCR).
-- **Deploy**: Deploys to the production environment (requires configuration).
-
-### Triggering a Deployment
-
-Deployments are triggered automatically on pushes to the `main` branch after successful tests and security checks.
+- **Build & Push**: On pushes to `main`, builds the Docker image and pushes it to GitHub Container Registry (GHCR).
+- **Deploy**: A placeholder job — enabling real deployment requires configuring SSH secrets or a self-hosted runner (see the comments in the workflow).
 
 #### Standard Installation
 
 1. **Clone the Repository**
 
    ```bash
-   git clone Lakera-demo
-   cd Lakera-demo
+   git clone https://github.com/alshawwaf/Lakera-Demo.git
+   cd Lakera-Demo
    ```
 
 2. **Create Virtual Environment**
@@ -145,17 +148,24 @@ Deployments are triggered automatically on pushes to the `main` branch after suc
    Edit `.env` with your credentials:
 
    ```env
-   DEMO_API_KEY=your_demo_api_key
-   DEMO_PROJECT_ID=your_project_id
+   LAKERA_API_KEY=your_lakera_api_key
+   LAKERA_PROJECT_ID=your_project_id
    
    # Optional: Configure LLM providers
    OPENAI_API_KEY=your_openai_key
    AZURE_OPENAI_API_KEY=your_azure_key
    GEMINI_API_KEY=your_gemini_key
    
+   # Initial admin login (seeded on first run)
+   DEFAULT_ADMIN_EMAIL=admin@example.com
+   DEFAULT_ADMIN_PASSWORD=change_me_please
+   FLASK_SECRET_KEY=change_this_to_a_random_secret_string
+   
    # Application settings
    APP_PORT=9000
    ```
+
+   The full set of options is documented in `.env.example` and the [Configuration Reference](docs/CONFIGURATION.md).
 
 5. **Initialize and Run**
 
@@ -181,30 +191,32 @@ For containerized deployment:
    docker run -p 9000:9000 --env-file .env lakera-demo
    ```
 
-### Full Production Environment
+### Full Environment (with Redis)
 
-For a complete setup with Redis, monitoring, and automated backups:
+For a complete setup with Redis-backed rate limiting and a Redis web UI, use the top-level `docker-compose.yml`:
 
 ```bash
-# Start all services
-docker compose -f docker-compose.production.yml up -d
+# Start the core services (web + Redis + Redis Commander)
+docker compose up -d
 
-# With production features (Nginx + automated backups)
-docker compose -f docker-compose.production.yml --profile production up -d
+# Add the production profile (Nginx reverse proxy + automated backups)
+docker compose --profile production up -d
 
 # View services
-docker compose -f docker-compose.production.yml ps
+docker compose ps
 ```
 
 **Services included:**
 
-- Main application with Gunicorn
-- Redis for distributed rate limiting
-- Redis Commander (web UI at <http://localhost:8081>)
-- Nginx reverse proxy (production profile)
-- Automated backup service (production profile)
+- Main application (`web`)
+- Redis for distributed rate limiting (host port `6380` → container `6379`)
+- Redis Commander (web UI at <http://localhost:8082>)
+- Nginx reverse proxy (`production` profile)
+- Automated daily backup service (`production` profile)
 
-See [Production Environment Guide](docs/PRODUCTION_GUIDE.md) for details.
+> A `Makefile` wraps these commands (`make dev`, `make prod`, `make logs`, `make health`, `make backup`, `make test`, …); run `make help` for the full list.
+
+See the [Full Environment Guide](docs/PRODUCTION_GUIDE.md) for a service-by-service breakdown, and [PRODUCTION.md](docs/PRODUCTION.md) for the single-container / Gunicorn path and production checklist.
 
 The application will be accessible at `http://localhost:9000`
 
@@ -218,19 +230,31 @@ The application supports the following configuration options via `.env`:
 
 | Variable | Description | Required | Default |
 |----------|-------------|----------|---------|
-| `DEMO_API_KEY` | Demo API authentication key | Yes | - |
-| `DEMO_PROJECT_ID` | Demo project identifier | Yes | - |
-| `DEMO_API_URL` | Demo API endpoint | No | `https://api.lakera.ai/v2/guard` |
+| `LAKERA_API_KEY` | Lakera Guard API authentication key | Yes | - |
+| `LAKERA_PROJECT_ID` | Lakera project identifier | Yes | - |
+| `LAKERA_API_URL` | Lakera Guard API endpoint | No | `https://api.lakera.ai/v2/guard` |
 | `OPENAI_API_KEY` | OpenAI API key | No | - |
+| `OPENAI_API_URL` | OpenAI API endpoint | No | `https://api.openai.com/v1/chat/completions` |
 | `AZURE_OPENAI_API_KEY` | Azure OpenAI API key | No | - |
 | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL | No | - |
 | `AZURE_OPENAI_DEPLOYMENT` | Azure deployment name | No | `gpt-4o-mini-2024-07-18` |
+| `AZURE_CONTENT_SAFETY_KEY` | Azure AI Content Safety key (benchmarking) | No | - |
+| `AZURE_CONTENT_SAFETY_ENDPOINT` | Azure AI Content Safety endpoint (benchmarking) | No | - |
 | `GEMINI_API_KEY` | Google Gemini API key | No | - |
 | `OLLAMA_API_URL` | Ollama API URL | No | `http://localhost:11434` |
 | `OLLAMA_TIMEOUT` | Ollama request timeout (seconds) | No | `120` |
 | `APP_PORT` | Application port | No | `9000` |
 | `LOGS_DIR` | Log file directory | No | `logs` |
 | `LOG_FILENAME` | Log file name | No | `application.log` |
+| `CORS_ORIGINS` | Allowed origins for `/api/*` (comma-separated, or `*`) | No | `*` |
+| `RATE_LIMIT_DAILY` | Requests per day per IP | No | `200` |
+| `RATE_LIMIT_HOURLY` | Requests per hour per IP | No | `50` |
+| `RATE_LIMIT_STORAGE` | Rate-limit backend (`memory://` or `redis://…`) | No | `memory://` |
+| `DEFAULT_ADMIN_EMAIL` | Initial admin login, seeded on first run | No | `admin@example.com` |
+| `DEFAULT_ADMIN_PASSWORD` | Initial admin password, seeded on first run | No | `change_me_please` |
+| `FLASK_SECRET_KEY` | Flask session secret (set a random value in production) | No | - |
+
+Additional Gunicorn tuning variables (`GUNICORN_WORKERS`, `GUNICORN_TIMEOUT`, `GUNICORN_BIND`) are documented in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ### Runtime Configuration
 
@@ -282,39 +306,49 @@ Interactive API documentation is available at `/apidocs/` when the application i
 
 ### Key Endpoints
 
-- `POST /api/analyze` - Analyze a prompt for security threats
+- `GET /health` - Liveness/health check (rate-limit exempt)
+- `POST /api/analyze` - Run a prompt through the inbound → LLM → outbound pipeline
 - `GET /api/logs` - Retrieve paginated security logs
-- `GET /api/analytics` - Get dashboard analytics data
+- `DELETE /api/logs` - Clear all logs (`DELETE /api/logs/<id>` removes one)
+- `GET /api/logs/export/csv` / `GET /api/logs/export/json` - Export logs
+- `GET /api/analytics` - Dashboard analytics data
 - `GET /api/triggers` - List available attack triggers
-- `DELETE /api/logs` - Clear all logs
-- `GET /api/logs/export/csv` - Export logs as CSV
-- `GET /api/logs/export/json` - Export logs as JSON
+- `POST /api/scan/lakera` / `POST /api/scan/azure` / `POST /api/scan/llmguard` - Single-engine scans
+- `POST /api/compare` - Compare a prompt across Lakera / Azure / LLM Guard
+- `GET /api/benchmark/history` / `GET /api/benchmark/stats` - Benchmarking data
+- `GET /api/models/status` / `POST /api/models/toggle` / `POST /api/models/download` - Local model management
 
 ---
 
 ## Project Structure
 
 ```
-lakera-demo/
-├── app.py                  # Main Flask application
-├── Dockerfile              # Container configuration
+Lakera-Demo/
+├── app.py                  # Main Flask application (routes, DB models, scan logic)
+├── Dockerfile              # Container configuration (Python 3.11-slim, CPU-only torch)
+├── docker-compose.yml      # Full environment (web + Redis + Redis Commander; production profile adds Nginx + backup)
+├── docker-compose-dev.yml  # Lightweight dev compose (Gunicorn --reload)
+├── Makefile                # Task automation (make help for targets)
 ├── requirements.txt        # Python dependencies
-├── .env.example           # Environment template
-├── .gitignore             # Git exclusions
+├── .env.example            # Environment template
 ├── data/
-│   └── triggers.json      # Attack trigger library
-├── docs/
-│   ├── ARCHITECTURE.md    # Technical architecture
-│   └── DEVELOPER_GUIDE.md # Development documentation
-├── instance/
-│   └── lakera_logs.db     # SQLite database
-├── logs/
-│   └── application.log    # Application logs
+│   └── triggers.json       # Attack trigger library
+├── demo_guides/            # Walkthrough guides for demoing each page
+├── docs/                   # ARCHITECTURE / CONFIGURATION / PRODUCTION / DEVELOPER_GUIDE
+├── nginx/
+│   └── nginx.conf          # Reverse-proxy config (production profile)
+├── scripts/
+│   ├── start_production.sh # Container entrypoint
+│   ├── backup_db.py        # SQLite backup (keeps 10 most recent)
+│   └── warmup_models.py    # Optional model warmup
 ├── static/
-│   ├── css/               # Modular stylesheets
-│   └── js/                # ES6 JavaScript modules
-└── templates/             # Jinja2 HTML templates
+│   ├── css/                # Modular stylesheets (base / components / pages)
+│   └── js/                 # ES6 JavaScript modules (shared / pages / main.js)
+├── templates/              # Jinja2 HTML templates
+└── tests/                  # pytest suite
 ```
+
+> `instance/` (SQLite DB), `logs/`, `backups/`, and `models_cache/` are created at runtime and are git-ignored.
 
 ---
 
@@ -326,32 +360,23 @@ Refer to the [Developer Guide](docs/DEVELOPER_GUIDE.md) for comprehensive setup 
 
 ### Running Tests
 
+The `tests/` suite runs under pytest (also executed in CI):
+
 ```bash
-# Future implementation
 python -m pytest tests/
+# or
+make test
 ```
 
 ### Code Style
 
 - **Python**: Follow PEP 8 guidelines
 - **JavaScript**: Use ES6+ features, 4-space indentation
-- **CSS**: Modular architecture with BEM naming convention
+- **CSS**: Modular architecture, split across `static/css/base`, `components`, and `pages`
 
-### VS Code Configuration
+### Editing Jinja Templates
 
-This project includes VS Code settings to properly handle Jinja templates:
-
-**Included Configuration (`.vscode/settings.json`):**
-
-- Associates `.html` files with Jinja-HTML language mode
-- Disables auto-formatting for Jinja templates to prevent syntax corruption
-- Enables Emmet support in Jinja-HTML files
-
-**Recommended Extension:**
-
-- **[Jinja HTML](https://marketplace.visualstudio.com/items?itemName=samuelcolvin.jinjahtml)**: Provides syntax highlighting for Jinja2 templates
-
-> **Note**: The VS Code HTML formatter may add spaces inside `{{ }}` Jinja brackets, breaking template syntax. The included settings prevent this by using Jinja-HTML mode.
+The HTML files under `templates/` are Jinja2 templates. If your editor auto-formats HTML, disable it for these files — inserting spaces inside `{{ }}` expressions will break the template syntax. In VS Code, the [Jinja HTML](https://marketplace.visualstudio.com/items?itemName=samuelcolvin.jinjahtml) extension provides correct syntax highlighting.
 
 ---
 

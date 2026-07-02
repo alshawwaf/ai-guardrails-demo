@@ -30,7 +30,7 @@ gunicorn -w 4 -b 0.0.0.0:9000 --timeout 120 app:app
 
 - [ ] Configure all environment variables in `.env`
 - [ ] Set `APP_PORT` if not using default 9000
-- [ ] Configure API keys for Lakera Demo
+- [ ] Configure API keys for Lakera Guard
 - [ ] (Optional) Configure LLM providers
 - [ ] Set up regular database backups
 - [ ] Configure reverse proxy (nginx/Apache)

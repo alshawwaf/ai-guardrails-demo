@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Lakera Demo Demo uses a **hybrid modular architecture** that combines modern ES6 modules with legacy monolithic code for backward compatibility and gradual migration.
+The Lakera Guard Demo is a Flask application with a vanilla-JavaScript frontend built from ES6 modules. The frontend uses a single module entry point (`static/js/main.js`) that page-detects and dynamically imports the relevant page module (code-splitting).
 
 ## File Organization
 
@@ -16,6 +16,8 @@ static/js/
 ├── pages/                     # Page-specific modules
 │   ├── playground.js         # Playground functionality
 │   ├── dashboard.js          # Dashboard charts
+│   ├── benchmarking.js       # Multi-vendor benchmarking
+│   ├── settings.js           # Settings page
 │   └── logs.js               # Logs table logic
 └── main.js                   # Application entry point
 ```
@@ -77,22 +79,28 @@ static/css/
 ├── base/                   # Foundation styles
 │   ├── variables.css      # CSS custom properties
 │   ├── reset.css          # Global resets
+│   ├── typography.css     # Type scale
 │   └── layout.css         # Layout structure
 ├── components/             # Reusable components
 │   ├── traffic-flow.css   # Traffic flow diagram
-│   ├── modal.css          # Modal dialogs
+│   ├── modals.css         # Modal dialogs
 │   ├── cards.css          # Card components
 │   ├── buttons.css        # Button styles
-│   ├── forms.css          # Form controls
+│   ├── inputs.css         # Form controls
+│   ├── comparison.css     # Benchmark comparison view
+│   ├── notifications.css  # Toasts / alerts
+│   ├── loaders.css        # Loading states
 │   └── tables.css         # Table styles
 ├── pages/                  # Page-specific styles
 │   ├── playground.css     # Playground page
 │   ├── dashboard.css      # Dashboard page
+│   ├── benchmarking.css   # Benchmarking page
+│   ├── settings.css       # Settings page
 │   └── logs.css           # Logs page
 └── main.css                # Import orchestrator
 ```
 
-**Status:** Directory structure created, CSS splitting planned for future iteration.
+The stylesheet is fully split into `base`, `components`, and `pages` and assembled via `main.css`.
 
 ## Module System
 
@@ -120,23 +128,16 @@ import MainComponent from './component.js';
 import('./module.js').then(module => { ... });
 ```
 
-### Backward Compatibility
+### Script Loading
 
-The application uses a **dual-loading strategy**:
+Templates load a single ES-module entry point; there is no legacy monolithic script:
 
 ```html
-<!-- Legacy monolithic script -->
-<script src="/static/script.js"></script>
-
-<!-- New modular system -->
-<script type="module" src="/static/js/main.js"></script>
+<!-- Modular system (page-detects and dynamically imports page modules) -->
+<script type="module" src="{{ url_for('static', filename='js/main.js') }}?v=2"></script>
 ```
 
-**Benefits:**
-- Zero breaking changes during refactoring
-- Gradual migration path
-- Modules override legacy where implemented
-- Fallback to legacy for unmigrated features
+Chart.js is loaded separately from a CDN for the dashboard/benchmarking charts.
 
 ## Traffic Flow Visualization
 
@@ -269,7 +270,7 @@ import('./pages/dashboard.js').then(module => {
 
 ### User Input
 - Sanitized before display
-- Lakera Demo scans all inputs
+- Lakera Guard scans all inputs
 - No direct eval() or innerHTML with user data
 
 ### CORS
@@ -312,27 +313,14 @@ import('./pages/dashboard.js').then(module => {
    }
    ```
 
-### Extracting from Legacy
-
-1. Copy function from `script.js`
-2. Wrap in module export
-3. Add imports for dependencies
-4. Replace global references with imports
-5. Test thoroughly
-6. Remove from legacy file
-
 ## Future Enhancements
 
 ### JavaScript
-- [ ] Complete extraction of page modules
-- [ ] Remove legacy `script.js`
 - [ ] Add TypeScript type definitions
 - [ ] Implement service workers
 
 ### CSS
-- [ ] Split `style.css` into modules
-- [ ] Create component library
-- [ ] Implement CSS variables fully
+- [ ] Create a shared component library
 - [ ] Add dark/light theme toggle
 
 ### Performance

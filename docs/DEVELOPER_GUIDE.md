@@ -1,6 +1,6 @@
 # Developer Guide
 
-Welcome to the Lakera Demo developer documentation. This guide is designed to help you understand the project structure, set up your development environment, and contribute effectively.
+Welcome to the Lakera Guard Demo developer documentation. This guide is designed to help you understand the project structure, set up your development environment, and contribute effectively.
 
 ## Quick Start
 
@@ -32,13 +32,13 @@ Welcome to the Lakera Demo developer documentation. This guide is designed to he
     ```
     *Note: If `requirements.txt` is missing, install core packages:*
     ```bash
-    pip install flask python-dotenv requests Flask-SQLAlchemy google-generativeai
+    pip install flask Flask-Login python-dotenv requests Flask-SQLAlchemy google-genai
     ```
 
 4.  **Configuration**
     Create a `.env` file in the root directory:
     ```env
-    # Lakera Demo
+    # Lakera Guard
     LAKERA_API_KEY=your_key
     LAKERA_PROJECT_ID=your_id
 
@@ -77,10 +77,12 @@ The application follows a **modular hybrid architecture**, combining a Flask bac
 ### Backend (`app.py`)
 - **Framework**: Flask
 - **Database**: SQLite (via SQLAlchemy)
+- **Auth**: Flask-Login; all UI pages are `@login_required`. An initial admin is seeded from `DEFAULT_ADMIN_EMAIL` / `DEFAULT_ADMIN_PASSWORD`.
 - **API Routes**:
-    - `/api/analyze`: Core logic for Lakera Demo scans.
+    - `/api/analyze`: Core logic for Lakera Guard scans.
     - `/api/analytics`: Dashboard metrics.
     - `/api/logs`: Log management.
+    - `/api/compare`, `/api/scan/*`, `/api/benchmark/*`: Multi-vendor benchmarking (Lakera / Azure AI Content Safety / LLM Guard).
 
 ### Frontend (`static/js/`)
 - **Entry Point**: `main.js` handles routing and dynamic imports.
@@ -93,7 +95,7 @@ The application follows a **modular hybrid architecture**, combining a Flask bac
 ### Data Flow
 1.  **User Input** → `playground.js`
 2.  **API Call** → `POST /api/analyze`
-3.  **Backend** → Lakera Demo Inbound → LLM (OpenAI/Gemini) → Lakera Demo Outbound
+3.  **Backend** → Lakera Guard Inbound → LLM (OpenAI/Azure/Gemini/Ollama) → Lakera Guard Outbound
 4.  **Response** → Frontend Visualization (Traffic Flow)
 
 ## Project Structure
@@ -106,6 +108,8 @@ lakera-demo/
 │   └── triggers.json      # Trigger library
 ├── docs/                  # Documentation
 │   ├── ARCHITECTURE.md    # Detailed architectural deep-dive
+│   ├── CONFIGURATION.md   # Environment variable reference
+│   ├── PRODUCTION.md      # Production deployment guide
 │   └── DEVELOPER_GUIDE.md # This file
 ├── instance/              # SQLite database
 ├── logs/                  # Application logs
@@ -201,6 +205,6 @@ If you encounter `Authentication failed` or `osxkeychain` errors on Linux:
 
 ## Resources
 
-- [Lakera Demo API Documentation](https://platform.lakera.ai/docs)
+- [Lakera Guard API Documentation](https://platform.lakera.ai/docs)
 - [Flask Documentation](https://flask.palletsprojects.com/)
 - [Chart.js Documentation](https://www.chartjs.org/)
