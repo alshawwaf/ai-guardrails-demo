@@ -443,11 +443,40 @@ def get_gemini_models():
         return []
 
 
+def resolve_ollama_url():
+    """Ollama base URL used to actually reach the model server.
+
+    Precedence: settings DB > env > default. Permanent guard for Dokploy: a
+    stale OLLAMA_API_URL=http://localhost:11434 keeps getting re-pushed on every
+    redeploy, but localhost can't reach Ollama from inside a container. So if the
+    configured host is localhost/127.0.0.1 AND the agentic 'ollama-cpu' service
+    is resolvable (i.e. we're in the deployed stack), transparently use it.
+    Standalone deploys (ollama-cpu doesn't resolve) are left untouched.
+    Override the container host via OLLAMA_CONTAINER_HOST.
+    """
+    import socket
+    from urllib.parse import urlparse
+
+    url = get_setting("OLLAMA_API_URL") or os.getenv(
+        "OLLAMA_API_URL", "http://ollama-cpu:11434"
+    )
+    try:
+        parsed = urlparse(url)
+        if (parsed.hostname or "") in ("localhost", "127.0.0.1"):
+            container_host = os.getenv("OLLAMA_CONTAINER_HOST", "ollama-cpu")
+            try:
+                socket.gethostbyname(container_host)
+                url = f"{parsed.scheme or 'http'}://{container_host}:{parsed.port or 11434}"
+            except OSError:
+                pass  # ollama-cpu not resolvable → standalone; keep as configured
+    except Exception:
+        pass
+    return url
+
+
 def get_ollama_models():
     """Helper function to fetch available Ollama models with caching"""
-    ollama_url = get_setting("OLLAMA_API_URL") or os.getenv(
-        "OLLAMA_API_URL", "http://localhost:11434"
-    )
+    ollama_url = resolve_ollama_url()
 
     # Check cache
     now = datetime.now()
@@ -1670,9 +1699,7 @@ def analyze():
                 openai_response = "Gemini API key not configured."
 
         elif model_provider == "ollama":
-            ollama_url = get_setting("OLLAMA_API_URL") or os.getenv(
-                "OLLAMA_API_URL", "http://localhost:11434"
-            )
+            ollama_url = resolve_ollama_url()
             ollama_timeout = int(
                 get_setting("OLLAMA_TIMEOUT") or os.getenv("OLLAMA_TIMEOUT", 120)
             )
