@@ -172,6 +172,7 @@ MODEL_CACHE = {
     "openai": {"data": None, "timestamp": None},
     "gemini": {"data": None, "timestamp": None},
     "ollama": {"data": None, "timestamp": None},
+    "anthropic": {"data": None, "timestamp": None},
 }
 
 # Global cache for Gemini Client
@@ -374,6 +375,59 @@ ANTHROPIC_MODELS = [
     "claude-opus-4-7",
     "claude-sonnet-4-6",
 ]
+
+
+def get_anthropic_models(api_key):
+    """Live Claude model list from the Anthropic Models API when a key is set;
+    falls back to the static ANTHROPIC_MODELS list otherwise (cached like the
+    other providers)."""
+    if not api_key:
+        return ANTHROPIC_MODELS
+    now = datetime.now()
+    cached = MODEL_CACHE["anthropic"]
+    if (
+        cached["data"]
+        and cached["timestamp"]
+        and now - cached["timestamp"] < CACHE_DURATION
+    ):
+        return cached["data"]
+    try:
+        resp = requests.get(
+            "https://api.anthropic.com/v1/models",
+            headers={"x-api-key": api_key, "anthropic-version": "2023-06-01"},
+            timeout=3,
+        )
+        if resp.status_code == 200:
+            ids = [m["id"] for m in resp.json().get("data", []) if m.get("id")]
+            result = ids or ANTHROPIC_MODELS
+            MODEL_CACHE["anthropic"] = {"data": result, "timestamp": now}
+            return result
+    except Exception as e:
+        logging.warning(f"Anthropic model list fetch failed, using static list: {e}")
+    return ANTHROPIC_MODELS
+
+
+def guard_credentials():
+    """AI Guardrails (Lakera) key + project, resilient to redeploys.
+
+    Precedence: settings DB (DEMO_*) > env DEMO_* > env LAKERA_* (the kept
+    technical env names). Reading BOTH env names means a deploy that sets
+    LAKERA_API_KEY configures the guard consistently everywhere — the Settings
+    page, the /api/settings status, AND the scan — not just the Settings page.
+    """
+    key = (
+        get_setting("DEMO_API_KEY")
+        or os.getenv("DEMO_API_KEY")
+        or os.getenv("LAKERA_API_KEY")
+        or ""
+    )
+    project = (
+        get_setting("DEMO_PROJECT_ID")
+        or os.getenv("DEMO_PROJECT_ID")
+        or os.getenv("LAKERA_PROJECT_ID")
+        or ""
+    )
+    return key, project
 
 
 def get_available_models(api_key):
@@ -592,6 +646,10 @@ def index():
 
     gemini_models = get_gemini_models()
     ollama_models = get_ollama_models()
+    anthropic_api_key = get_setting("ANTHROPIC_API_KEY") or os.getenv(
+        "ANTHROPIC_API_KEY", ""
+    )
+    anthropic_models = get_anthropic_models(anthropic_api_key)
 
     # Server-side default provider/model used when the browser has no saved
     # preference. Lets a deployment pin, e.g., Ollama + an uncensored local
@@ -610,7 +668,7 @@ def index():
         azure_deployment=azure_deployment,
         gemini_models=gemini_models,
         ollama_models=ollama_models,
-        anthropic_models=ANTHROPIC_MODELS,
+        anthropic_models=anthropic_models,
         is_azure_openai_configured=is_azure_openai_configured,
         is_azure_content_safety_configured=is_azure_content_safety_configured,
         default_provider=default_provider,
@@ -646,6 +704,10 @@ def playground():
 
     gemini_models = get_gemini_models()
     ollama_models = get_ollama_models()
+    anthropic_api_key = get_setting("ANTHROPIC_API_KEY") or os.getenv(
+        "ANTHROPIC_API_KEY", ""
+    )
+    anthropic_models = get_anthropic_models(anthropic_api_key)
 
     # Server-side default provider/model used when the browser has no saved
     # preference. Lets a deployment pin, e.g., Ollama + an uncensored local
@@ -664,7 +726,7 @@ def playground():
         azure_deployment=azure_deployment,
         gemini_models=gemini_models,
         ollama_models=ollama_models,
-        anthropic_models=ANTHROPIC_MODELS,
+        anthropic_models=anthropic_models,
         is_azure_openai_configured=is_azure_openai_configured,
         is_azure_content_safety_configured=is_azure_content_safety_configured,
         default_provider=default_provider,
@@ -756,8 +818,7 @@ def settings():
             ollama_models=ollama_models,
         )
 
-    api_key = get_setting("DEMO_API_KEY") or os.getenv("LAKERA_API_KEY", "")
-    project_id = get_setting("DEMO_PROJECT_ID") or os.getenv("LAKERA_PROJECT_ID", "")
+    api_key, project_id = guard_credentials()
     openai_api_key = get_setting("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY", "")
     azure_openai_api_key = get_setting("AZURE_OPENAI_API_KEY") or os.getenv(
         "AZURE_OPENAI_API_KEY", ""
@@ -810,8 +871,7 @@ def get_api_settings():
     """
     Get current configuration for the frontend.
     """
-    demo_api_key = get_setting("DEMO_API_KEY") or os.getenv("DEMO_API_KEY", "")
-    demo_project_id = get_setting("DEMO_PROJECT_ID") or os.getenv("DEMO_PROJECT_ID", "")
+    demo_api_key, demo_project_id = guard_credentials()
     azure_api_key = get_setting("AZURE_OPENAI_API_KEY") or os.getenv("AZURE_OPENAI_API_KEY", "")
     azure_endpoint = get_setting("AZURE_OPENAI_ENDPOINT") or os.getenv("AZURE_OPENAI_ENDPOINT", "")
     azure_deployment = get_setting("AZURE_OPENAI_DEPLOYMENT") or os.getenv("AZURE_OPENAI_DEPLOYMENT", "")
@@ -1597,8 +1657,8 @@ def analyze():
       500:
         description: API Key not configured
     """
-    # Try DB first, then env
-    api_key = get_setting("DEMO_API_KEY") or os.getenv("DEMO_API_KEY")
+    # DB (DEMO_*) first, then env DEMO_* / LAKERA_* — see guard_credentials().
+    api_key, demo_project_id = guard_credentials()
     if not api_key:
         return jsonify({"error": "API Key not configured. Please go to Settings."}), 500
 
@@ -1624,8 +1684,7 @@ def analyze():
     if use_guardrails:
         payload = {
             "messages": [{"role": "user", "content": prompt}],
-            "project_id": get_setting("DEMO_PROJECT_ID")
-            or os.getenv("DEMO_PROJECT_ID"),
+            "project_id": demo_project_id,
             "breakdown": True,
         }
         try:
@@ -1829,8 +1888,7 @@ def analyze():
         try:
             outbound_payload = {
                 "messages": [{"role": "assistant", "content": openai_response}],
-                "project_id": get_setting("DEMO_PROJECT_ID")
-                or os.getenv("DEMO_PROJECT_ID"),
+                "project_id": demo_project_id,
                 "breakdown": True,
             }
             out_response = requests.post(url, headers=headers, json=outbound_payload)
@@ -2275,9 +2333,10 @@ def scan_guardrails_endpoint():
     if not prompt:
         return jsonify({"error": "No prompt provided"}), 400
 
+    _gc_key, _gc_project = guard_credentials()
     guardrails_config = {
-        "api_key": get_setting("DEMO_API_KEY") or os.getenv("DEMO_API_KEY"),
-        "project_id": get_setting("DEMO_PROJECT_ID") or os.getenv("DEMO_PROJECT_ID"),
+        "api_key": _gc_key,
+        "project_id": _gc_project,
         "url": os.getenv("DEMO_API_URL", "https://api.lakera.ai/v2/guard"),
     }
 
@@ -2333,9 +2392,10 @@ def compare():
     if not prompt:
         return jsonify({"error": "No prompt provided"}), 400
 
+    _gc_key, _gc_project = guard_credentials()
     guardrails_config = {
-        "api_key": get_setting("DEMO_API_KEY") or os.getenv("DEMO_API_KEY"),
-        "project_id": get_setting("DEMO_PROJECT_ID") or os.getenv("DEMO_PROJECT_ID"),
+        "api_key": _gc_key,
+        "project_id": _gc_project,
         "url": os.getenv("DEMO_API_URL", "https://api.lakera.ai/v2/guard"),
     }
 
