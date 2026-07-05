@@ -136,11 +136,27 @@ export function initPlayground() {
         if (!modelSelect || !selectedModelText) return;
         modelSelect.value = value;
         selectedModelText.textContent = value;
-        
+
         // Highlight in list
         modelOptions.querySelectorAll(".option-item").forEach(opt => {
             opt.classList.toggle("selected", opt.dataset.value === value);
         });
+        refreshDefaultBtn();
+    }
+
+    // Reflect whether the current provider+model is the saved default, without
+    // clobbering the button's icon (only the .cp2-default-text span changes).
+    function refreshDefaultBtn() {
+        if (!setDefaultBtn || !providerSelect) return;
+        const isAzure = providerSelect.value === "azure";
+        const isDefault =
+            localStorage.getItem("default_provider") === providerSelect.value &&
+            (isAzure || localStorage.getItem("default_model") === (modelSelect ? modelSelect.value : ""));
+        setDefaultBtn.classList.toggle("is-default", isDefault);
+        const txt = setDefaultBtn.querySelector(".cp2-default-text");
+        if (txt) txt.textContent = isDefault ? "Default model" : "Set as default";
+        const icon = setDefaultBtn.querySelector("svg");
+        if (icon) icon.innerHTML = isDefault ? '<path d="M5 13l4 4L19 7"/>' : '<path d="M6 3h12v18l-6-4-6 4z"/>';
     }
 
     // Set up listeners
@@ -222,14 +238,25 @@ export function initPlayground() {
             if (providerSelect.value !== 'azure') {
                 localStorage.setItem("default_model", modelSelect.value);
             }
-
-            const originalText = setDefaultBtn.textContent;
-            setDefaultBtn.textContent = "Saved!";
-            setTimeout(() => {
-                setDefaultBtn.textContent = originalText;
-            }, 2000);
+            const txt = setDefaultBtn.querySelector(".cp2-default-text");
+            setDefaultBtn.classList.add("is-default");
+            if (txt) {
+                txt.textContent = "Saved";
+                setTimeout(refreshDefaultBtn, 1500);
+            }
         });
+        refreshDefaultBtn();
     }
+
+    // Guard toggle chips reflect their checkbox state (chips wrap the inputs).
+    ["guardrails-scan-checkbox", "guardrails-outbound-checkbox"].forEach((id) => {
+        const cb = document.getElementById(id);
+        if (!cb) return;
+        const chip = cb.closest(".cp2-guard");
+        const sync = () => { if (chip) chip.classList.toggle("on", cb.checked); };
+        cb.addEventListener("change", sync);
+        sync();
+    });
 
     // Character count
     if (promptInput && charCount) {

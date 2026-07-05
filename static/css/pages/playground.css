@@ -14,9 +14,8 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
-  height: calc(100vh - 460px);
-  max-height: 760px;
-  min-height: 520px;
+  align-items: start;
+  min-height: calc(100vh - 460px);
 }
 
 .input-panel,
@@ -26,9 +25,10 @@
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 1rem;
-  padding: 1.5rem 1.5rem 3rem 1.5rem;
-  overflow: hidden;
+  padding: 1.5rem;
 }
+/* Long trigger list scrolls inside its panel rather than growing the page. */
+.examples-panel .examples-list { max-height: 60vh; }
 
 .examples-grid {
   overflow-y: auto;
@@ -171,3 +171,47 @@
     gap: 1rem;
   }
 }
+
+/* ============================================================================
+   Chat Playground + Trigger Library redesign (cp2) — themes in light & dark
+   ============================================================================ */
+.input-panel.cp2,
+.examples-panel.cp2 { gap: 1.15rem; }
+
+.cp2-head { display: flex; align-items: center; gap: 0.8rem; }
+.cp2-head-split { justify-content: space-between; }
+.cp2-head-left { display: flex; align-items: center; gap: 0.8rem; }
+.cp2-badge { width: 42px; height: 42px; border-radius: 13px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; background: var(--brand-gradient); box-shadow: 0 10px 20px -10px rgba(168, 85, 247, 0.55); }
+.cp2-badge svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; }
+.cp2-head h2, .cp2-head h3 { margin: 0; font-size: 1.15rem; }
+.cp2-head p { margin: 0.1rem 0 0; color: var(--text-secondary); font-size: 0.86rem; }
+
+.cp2-group-label { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.5rem; }
+
+.cp2-guards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+.cp2-guard { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.7rem 0.85rem; border-radius: 14px; border: 1px solid var(--border-color); background: var(--bg-secondary); cursor: pointer; transition: all 0.16s ease; }
+.cp2-guard:hover { border-color: rgba(124, 58, 237, 0.35); }
+.cp2-guard.on { border-color: transparent; background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(236, 72, 153, 0.12)); box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.3); }
+.cp2-guard-input { position: absolute; opacity: 0; width: 0; height: 0; }
+.cp2-gtext b { display: block; font-size: 0.9rem; color: var(--text-primary); }
+.cp2-gtext small { color: var(--text-secondary); font-size: 0.74rem; }
+.cp2-sw { width: 38px; height: 22px; border-radius: 999px; background: #cbd0dd; position: relative; flex: 0 0 auto; transition: background 0.18s ease; }
+.cp2-sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: left 0.18s ease; }
+.cp2-guard.on .cp2-sw { background: var(--brand-gradient); }
+.cp2-guard.on .cp2-sw::after { left: 19px; }
+
+.cp2-mhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.cp2-model-row { display: flex; gap: 0.6rem; }
+.cp2-model-row > * { flex: 1; min-width: 0; }
+.cp2-default { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.34rem 0.75rem; border-radius: 999px; border: 1px solid rgba(124, 58, 237, 0.28); background: var(--bg-secondary); color: var(--accent-color); font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.16s ease; }
+.cp2-default svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+.cp2-default:hover { border-color: rgba(124, 58, 237, 0.55); background: rgba(124, 58, 237, 0.06); }
+.cp2-default.is-default { border-color: transparent; background: linear-gradient(135deg, rgba(99, 102, 241, 0.16), rgba(236, 72, 153, 0.16)); box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.32); }
+
+.cp2-grow { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.cp2 #prompt { flex: 1; min-height: 110px; width: 100%; resize: none; }
+
+.cp2-footer { display: flex; align-items: center; justify-content: space-between; }
+.cp2-scan { display: inline-flex; align-items: center; gap: 0.5rem; }
+.cp2-scan svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 2; }
+.cp2-scan svg polygon { fill: #fff; stroke: none; }
