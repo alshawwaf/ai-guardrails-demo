@@ -75,15 +75,43 @@ export function initPlayground() {
         }
     }
 
+    // Inline, actionable hint shown next to the model selector when Ollama is
+    // selected but no models came back (server couldn't reach the model host).
+    // Kept minimal: a short message + Retry (reload re-queries Ollama) + a link
+    // to Settings to check the API URL.
+    function setOllamaHint(show) {
+        const row = modelWrapper ? modelWrapper.closest(".cp2-model-row") : null;
+        let hint = document.getElementById("ollama-connection-hint");
+        if (!show) {
+            if (hint) hint.remove();
+            return;
+        }
+        if (!row) return;
+        if (!hint) {
+            hint = document.createElement("div");
+            hint.id = "ollama-connection-hint";
+            hint.className = "cp2-model-hint";
+            hint.innerHTML =
+                `<span>Can't reach Ollama — check the model server / ` +
+                `<a href="/settings">Settings</a>.</span>` +
+                `<button type="button" id="ollama-retry-btn" class="cp2-model-hint-retry">Retry</button>`;
+            // Place the hint directly under the model row.
+            row.insertAdjacentElement("afterend", hint);
+            const retry = hint.querySelector("#ollama-retry-btn");
+            if (retry) retry.addEventListener("click", () => window.location.reload());
+        }
+    }
+
     // Populate models
     function populateModels() {
         if (!providerSelect || !modelOptions || !window.llmData) return;
 
         const provider = providerSelect.value;
         const data = window.llmData[provider];
-        
+
         modelOptions.innerHTML = "";
         selectedModelText.textContent = "Select a model...";
+        setOllamaHint(false);
 
         if (provider === 'azure') {
             const modelName = data.deployment;
@@ -115,6 +143,7 @@ export function initPlayground() {
                 selectedModelText.textContent = provider === 'ollama' ? "No connection" : "No models available";
                 modelWrapper.style.pointerEvents = "none";
                 modelWrapper.style.opacity = "0.7";
+                if (provider === 'ollama') setOllamaHint(true);
             }
         }
     }

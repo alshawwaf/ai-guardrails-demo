@@ -62,7 +62,7 @@
 
 .example-grid-small {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: 1fr;
   gap: 0.75rem;
   width: 100%;
 }
@@ -202,6 +202,38 @@
 
 .cp2-mhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
 .cp2-model-row { display: flex; gap: 0.6rem; }
+
+/* Actionable "can't reach Ollama" hint under the model selector */
+.cp2-model-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.cp2-model-hint a { color: var(--accent-color); font-weight: 600; text-decoration: none; }
+.cp2-model-hint a:hover { text-decoration: underline; }
+.cp2-model-hint-retry {
+  flex: 0 0 auto;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--accent-color);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.cp2-model-hint-retry:hover { border-color: rgba(124, 58, 237, 0.55); background: rgba(124, 58, 237, 0.06); }
 .cp2-model-row > * { flex: 1; min-width: 0; }
 .cp2-default { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.34rem 0.75rem; border-radius: 999px; border: 1px solid rgba(124, 58, 237, 0.28); background: var(--bg-secondary); color: var(--accent-color); font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.16s ease; }
 .cp2-default svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }

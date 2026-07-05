@@ -456,7 +456,7 @@ def get_ollama_models():
             return MODEL_CACHE["ollama"]["data"]
 
     try:
-        response = requests.get(f"{ollama_url}/api/tags", timeout=2)
+        response = requests.get(f"{ollama_url}/api/tags", timeout=5)
         if response.status_code == 200:
             models = response.json().get("models", [])
             result = sorted([m["name"] for m in models])

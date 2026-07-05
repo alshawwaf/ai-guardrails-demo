@@ -47,10 +47,10 @@
             </div>
             <div class="cp2-model-row">
                 <select id="provider-select" class="styled-select">
-                    <option value="azure" selected>Azure OpenAI</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="gemini">Google Gemini</option>
-                    <option value="ollama">Ollama (Local LLMs)</option>
+                    <option value="azure" {{ 'selected' if default_provider == 'azure' else '' }}>Azure OpenAI</option>
+                    <option value="openai" {{ 'selected' if default_provider == 'openai' else '' }}>OpenAI</option>
+                    <option value="gemini" {{ 'selected' if default_provider == 'gemini' else '' }}>Google Gemini</option>
+                    <option value="ollama" {{ 'selected' if default_provider == 'ollama' else '' }}>Ollama (Local LLMs)</option>
                 </select>
                 <div class="custom-select-container" id="model-select-wrapper">
                     <div class="custom-select-trigger" id="model-select-trigger">

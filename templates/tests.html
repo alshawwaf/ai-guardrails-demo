@@ -1,38 +1,50 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header centered">
-    <h2>Jailbreak Arena</h2>
-    <p>Test AI Guardrails Demo against known attack vectors. Click any example to run it through the security scanner.</p>
-</div>
-
-<div id="examples-container" class="arena-container">
-    <!-- Categories will be populated by JavaScript -->
-</div>
-
-<section id="test-runner-section" class="hidden">
-    <div class="runner-header">
-        <h3>Test Runner</h3>
-        <p>Review and execute the selected attack</p>
-    </div>
-    
-    <div class="test-input-wrapper">
-        <label for="test-prompt">Attack Prompt</label>
-        <textarea id="test-prompt" readonly></textarea>
-    </div>
-    
-    <button id="run-test-btn" class="primary-btn">
-        <span class="btn-text">Run Test</span>
-        <div class="loader hidden"></div>
-    </button>
-
-    <div id="test-results-section" class="results-section hidden">
-        <div class="result-header">
-            <div id="test-status-indicator" class="status-indicator"></div>
-            <h3 id="test-result-title"></h3>
+<div class="benchmark-page">
+    <div class="benchmark-hero">
+        <div class="hero-content">
+            <div class="hero-badge">Attack Simulation</div>
+            <h1>Jailbreak Arena</h1>
+            <p>Test AI Guardrails Demo against known attack vectors. Pick any example to run it through the security scanner and see how the guardrails respond.</p>
         </div>
-        <p id="test-result-description"></p>
-        <div id="test-flags-container" class="flags-container"></div>
     </div>
-</section>
+
+    <section class="widget-card">
+        <div class="card-header">
+            <h3>Attack Library</h3>
+        </div>
+        <div id="examples-container" class="arena-container">
+            <!-- Categories will be populated by JavaScript -->
+        </div>
+    </section>
+
+    <section id="test-runner-section" class="widget-card hidden">
+        <div class="card-header">
+            <div>
+                <h3>Test Runner</h3>
+                <p>Review and execute the selected attack</p>
+            </div>
+        </div>
+
+        <div class="test-input-wrapper">
+            <label for="test-prompt">Attack Prompt</label>
+            <textarea id="test-prompt" readonly></textarea>
+        </div>
+
+        <button id="run-test-btn" class="btn-gradient">
+            <span class="btn-text">Run Test</span>
+            <div class="loader hidden"></div>
+        </button>
+
+        <div id="test-results-section" class="results-section hidden">
+            <div class="result-header">
+                <div id="test-status-indicator" class="status-indicator"></div>
+                <h3 id="test-result-title"></h3>
+            </div>
+            <p id="test-result-description"></p>
+            <div id="test-flags-container" class="flags-container"></div>
+        </div>
+    </section>
+</div>
 {% endblock %}
