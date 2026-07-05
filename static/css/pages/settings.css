@@ -236,3 +236,43 @@
 .input-field { border: 1px solid rgba(124,58,237,.16); border-radius: 12px; }
 .input-field:focus { border-color: rgba(124,58,237,.5); box-shadow: 0 0 0 4px rgba(124,58,237,.14); }
 .settings-actions .btn-gradient { border-radius: 14px; }
+
+/* ============================================================================
+   Settings — two-pane (macOS System-Settings style): a Providers sidebar swaps
+   the detail pane in place. Replaces the accordion cards above.
+   ============================================================================ */
+.sp-2pane { display: grid; grid-template-columns: 270px 1fr; gap: 1.25rem; align-items: start; margin-top: 0.25rem; }
+.sp-sidebar, .sp-detail { position: relative; overflow: hidden; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 18px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 20px 44px -30px rgba(120,70,200,.28); }
+.sp-sidebar { padding: 0.7rem; }
+.sp-side-label { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-secondary); padding: 0.6rem 0.7rem 0.4rem; }
+.sp-item { display: flex; align-items: center; gap: 0.7rem; width: 100%; text-align: left; padding: 0.6rem 0.7rem; border: none; background: none; border-radius: 12px; cursor: pointer; font: inherit; color: var(--text-primary); transition: background 0.15s ease; }
+.sp-item + .sp-item { margin-top: 0.25rem; }
+.sp-item:hover { background: var(--nav-link-hover); }
+.sp-item.active { background: var(--brand-gradient); color: #fff; box-shadow: 0 10px 20px -10px rgba(168,85,247,.55); }
+.sp-ic { width: 32px; height: 32px; border-radius: 9px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; background: var(--bg-secondary); border: 1px solid var(--border-color); }
+.sp-ic img { width: 18px; height: 18px; object-fit: contain; }
+.sp-ic svg { width: 17px; height: 17px; color: var(--text-primary); }
+.sp-ic.brand { background: var(--brand-gradient); border-color: transparent; box-shadow: 0 8px 18px -10px rgba(168,85,247,.6); }
+.sp-item.active .sp-ic { background: rgba(255,255,255,.22); border-color: transparent; }
+.sp-item.active .sp-ic svg { color: #fff; }
+.sp-name { flex: 1; font-size: 0.9rem; font-weight: 600; min-width: 0; }
+.sp-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.sp-dot.set { background: var(--success-color); }
+.sp-dot.unset { background: var(--border-color); }
+.sp-item.active .sp-dot.set { background: #fff; }
+.sp-item.active .sp-dot.unset { background: rgba(255,255,255,.5); }
+
+.sp-detail::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--brand-gradient); }
+.sp-detail { padding: 1.6rem 1.8rem; }
+.sp-pane { display: none; }
+.sp-pane.active { display: block; }
+.sp-pane-head { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 1.5rem; }
+.sp-pane-head .sp-ic { width: 44px; height: 44px; border-radius: 13px; }
+.sp-pane-head .sp-ic svg { width: 22px; height: 22px; }
+.sp-pane-head .sp-ic img { width: 24px; height: 24px; }
+.sp-pane-head h3 { margin: 0; font-size: 1.2rem; }
+.sp-pane-head p { margin: 0.1rem 0 0; font-size: 0.8rem; color: var(--text-secondary); }
+.sp-pane-head .status-pill { margin-left: auto; }
+.sp-save { display: flex; justify-content: flex-end; margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid var(--border-color); }
+.sp-save .btn-gradient { padding: 0.8rem 1.8rem; border-radius: 12px; }
+@media (max-width: 760px) { .sp-2pane { grid-template-columns: 1fr; } }

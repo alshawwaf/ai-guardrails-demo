@@ -1,29 +1,19 @@
 export function initSettings() {
-    console.log("Initializing Settings Page logic...");
+    // Two-pane settings: a Providers sidebar swaps the detail pane in place.
+    // All panes stay in the DOM (only the active one is shown) so the single
+    // form still submits every provider's fields on Save.
+    const items = document.querySelectorAll(".sp-item");
+    const panes = document.querySelectorAll(".sp-pane");
+    if (!items.length) return;
 
-    // Global toggle function for cards
-    window.toggleCard = (cardId) => {
-        const card = document.getElementById(cardId);
-        if (!card) return;
-
-        const isCollapsed = card.classList.contains('collapsed');
-
-        // Optionally: close other cards if you want accordion style
-        /*
-        document.querySelectorAll('.widget-card').forEach(c => {
-            if (c.id !== cardId) {
-                c.classList.add('collapsed');
-                c.classList.remove('expanded');
-            }
-        });
-        */
-
-        if (isCollapsed) {
-            card.classList.remove('collapsed');
-            card.classList.add('expanded');
-        } else {
-            card.classList.add('collapsed');
-            card.classList.remove('expanded');
-        }
+    const select = (id) => {
+        items.forEach((it) => it.classList.toggle("active", it.dataset.pane === id));
+        panes.forEach((p) => p.classList.toggle("active", p.dataset.pane === id));
     };
+
+    items.forEach((it) => it.addEventListener("click", () => select(it.dataset.pane)));
+
+    // Honor a pane pre-marked active in the markup, else the first provider.
+    const initial = document.querySelector(".sp-item.active") || items[0];
+    select(initial.dataset.pane);
 }

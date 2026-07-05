@@ -2,193 +2,185 @@
 
 <div class="dashboard-wrapper">
   {% if success %}
-  <div class="alert success" style="margin-bottom: 2rem; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #4ade80; padding: 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+  <div class="alert success" style="margin-bottom: 1.5rem; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #16a34a; padding: 1rem; border-radius: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
     <span style="font-size: 1.2rem">✓</span> Settings saved successfully
   </div>
   {% endif %}
 
+  <div class="settings-hero">
+    <div class="hero-badge">Model &amp; Vendor Keys</div>
+    <h1>Configuration</h1>
+    <p>Pick a provider on the left to edit its keys. Everything is stored encrypted on this host.</p>
+  </div>
+
   <form method="POST" action="{{ url_for('settings') }}" class="settings-form">
-    <div class="settings-container">
-      
-      <div class="settings-hero">
-        <div class="hero-badge">Model &amp; Vendor Keys</div>
-        <h1>Configuration</h1>
-        <p>Connect AI Guardrails and the LLM providers. Keys are stored encrypted in the local database and never leave this host.</p>
-      </div>
+    <div class="sp-2pane">
+      <!-- Providers sidebar -->
+      <aside class="sp-sidebar">
+        <div class="sp-side-label">Providers</div>
 
-      <!-- Section: Platform -->
-      <div class="settings-grid">
-        <div class="widget-card collapsed" id="card-guardrails">
-          <div class="widget-header" onclick="toggleCard('card-guardrails')">
-            <div class="header-main">
-              <span class="header-icon brand"><img src="/static/guardrails-logo.png" alt="AI Guardrails"></span>
-              <h3>AI Guardrails Demo</h3>
-            </div>
-            <div class="header-right">
-              <span class="status-pill {{ 'set' if api_key else 'unset' }}">{{ 'Configured' if api_key else 'Not set' }}</span>
-              <span class="toggle-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></span>
-            </div>
+        <button type="button" class="sp-item active" data-pane="guardrails">
+          <span class="sp-ic brand"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></span>
+          <span class="sp-name">AI Guardrails</span>
+          <span class="sp-dot {{ 'set' if api_key else 'unset' }}"></span>
+        </button>
+
+        <button type="button" class="sp-item" data-pane="openai">
+          <span class="sp-ic"><svg viewBox="0 0 24 24" fill="currentColor" style="color:#10a37f"><path d="M22.28 12.18a5.9 5.9 0 00-.5-4.84 5.96 5.96 0 00-6.42-2.86A5.96 5.96 0 004.5 6.4a5.9 5.9 0 00-3.94 2.86 5.96 5.96 0 00.73 6.99 5.9 5.9 0 00.5 4.85 5.96 5.96 0 006.42 2.86 5.9 5.9 0 004.44 1.98 5.96 5.96 0 005.68-4.12 5.9 5.9 0 003.94-2.86 5.96 5.96 0 00-.72-6.98zM12 21.6a4.42 4.42 0 01-2.84-1.03l3.5-2.02a.58.58 0 00.29-.5v-4.94l1.48.86v3.98A4.44 4.44 0 0112 21.6z"></path></svg></span>
+          <span class="sp-name">OpenAI</span>
+          <span class="sp-dot {{ 'set' if openai_api_key else 'unset' }}"></span>
+        </button>
+
+        <button type="button" class="sp-item" data-pane="azure-openai">
+          <span class="sp-ic"><img src="/static/azure-openai.png" alt="Azure OpenAI"></span>
+          <span class="sp-name">Azure OpenAI</span>
+          <span class="sp-dot {{ 'set' if azure_openai_api_key else 'unset' }}"></span>
+        </button>
+
+        <button type="button" class="sp-item" data-pane="gemini">
+          <span class="sp-ic"><img src="/static/gemini-logo.png" alt="Gemini"></span>
+          <span class="sp-name">Google Gemini</span>
+          <span class="sp-dot {{ 'set' if gemini_api_key else 'unset' }}"></span>
+        </button>
+
+        <button type="button" class="sp-item" data-pane="anthropic">
+          <span class="sp-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.3L20 10.5l-5.8 2.2L12 19l-2.2-6.3L4 10.5l5.8-2.2z"></path></svg></span>
+          <span class="sp-name">Anthropic (Claude)</span>
+          <span class="sp-dot {{ 'set' if anthropic_api_key else 'unset' }}"></span>
+        </button>
+
+        <button type="button" class="sp-item" data-pane="ollama">
+          <span class="sp-ic brand"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z"></path></svg></span>
+          <span class="sp-name">Ollama (Local)</span>
+          <span class="sp-dot {{ 'set' if ollama_api_url else 'unset' }}"></span>
+        </button>
+
+        <button type="button" class="sp-item" data-pane="azure-cs">
+          <span class="sp-ic"><img src="/static/azure-openai.png" alt="Azure"></span>
+          <span class="sp-name">Azure Content Safety</span>
+          <span class="sp-dot {{ 'set' if azure_cs_key else 'unset' }}"></span>
+        </button>
+      </aside>
+
+      <!-- Detail pane -->
+      <section class="sp-detail">
+        <!-- AI Guardrails -->
+        <div class="sp-pane active" data-pane="guardrails">
+          <div class="sp-pane-head">
+            <span class="sp-ic brand"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></span>
+            <div><h3>AI Guardrails Demo</h3><p>Check Point · Prompt &amp; response scanning</p></div>
+            <span class="status-pill {{ 'set' if api_key else 'unset' }}">{{ 'Configured' if api_key else 'Not set' }}</span>
           </div>
-
-          <div class="widget-content">
-            <div class="input-group">
-              <label for="api_key" class="input-label">AI Guardrails API Key</label>
-              <input type="password" id="api_key" name="api_key" value="{{ api_key }}" class="input-field" placeholder="Enter your API Key">
-              <p class="input-help">Stored securely in the local database.</p>
-            </div>
-
-            <div class="input-group">
-              <label for="project_id" class="input-label">Project ID</label>
-              <input type="text" id="project_id" name="project_id" value="{{ project_id }}" class="input-field" placeholder="Enter your Project ID">
-            </div>
+          <div class="input-group">
+            <label for="api_key" class="input-label">AI Guardrails API Key</label>
+            <input type="password" id="api_key" name="api_key" value="{{ api_key }}" class="input-field" placeholder="Enter your API Key">
+            <p class="input-help">Stored securely in the local database.</p>
+          </div>
+          <div class="input-group">
+            <label for="project_id" class="input-label">Project ID</label>
+            <input type="text" id="project_id" name="project_id" value="{{ project_id }}" class="input-field" placeholder="Enter your Project ID">
           </div>
         </div>
 
         <!-- OpenAI -->
-        <div class="widget-card collapsed" id="card-openai">
-          <div class="widget-header" onclick="toggleCard('card-openai')">
-            <div class="header-main">
-              <span class="header-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="color: #10a37f;">
-                  <path d="M22.28 12.182c0-.527-.428-.954-.954-.954-.527 0-.954.427-.954.954V15.65c0 .527.427.954.954.954.526 0 .954-.427.954-.954v-3.468zM12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 14.4c-2.568 0-4.65-2.082-4.65-4.65S9.432 7.35 12 7.35s4.65 2.082 4.65 4.65-2.082 4.65-4.65 4.65z"></path>
-              </svg></span>
-              <h3>OpenAI</h3>
-            </div>
-            <div class="header-right">
-              <span class="status-pill {{ 'set' if openai_api_key else 'unset' }}">{{ 'Configured' if openai_api_key else 'Not set' }}</span>
-              <span class="toggle-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></span>
-            </div>
+        <div class="sp-pane" data-pane="openai">
+          <div class="sp-pane-head">
+            <span class="sp-ic"><svg viewBox="0 0 24 24" fill="currentColor" style="color:#10a37f"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 14.4a4.4 4.4 0 110-8.8 4.4 4.4 0 010 8.8z"></path></svg></span>
+            <div><h3>OpenAI</h3><p>Cloud · GPT models</p></div>
+            <span class="status-pill {{ 'set' if openai_api_key else 'unset' }}">{{ 'Configured' if openai_api_key else 'Not set' }}</span>
           </div>
-          <div class="widget-content">
-            <div class="input-group">
-              <label for="openai_api_key" class="input-label">API Key</label>
-              <input type="password" id="openai_api_key" name="openai_api_key" value="{{ openai_api_key }}" class="input-field" placeholder="sk-...">
-            </div>
+          <div class="input-group">
+            <label for="openai_api_key" class="input-label">API Key</label>
+            <input type="password" id="openai_api_key" name="openai_api_key" value="{{ openai_api_key }}" class="input-field" placeholder="sk-...">
           </div>
         </div>
 
         <!-- Azure OpenAI -->
-        <div class="widget-card collapsed" id="card-azure-openai">
-          <div class="widget-header" onclick="toggleCard('card-azure-openai')">
-            <div class="header-main">
-              <span class="header-icon"><img src="/static/azure-openai.png" alt="Azure OpenAI"></span>
-              <h3>Azure OpenAI</h3>
-            </div>
-            <div class="header-right">
-              <span class="status-pill {{ 'set' if azure_openai_api_key else 'unset' }}">{{ 'Configured' if azure_openai_api_key else 'Not set' }}</span>
-              <span class="toggle-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></span>
-            </div>
+        <div class="sp-pane" data-pane="azure-openai">
+          <div class="sp-pane-head">
+            <span class="sp-ic"><img src="/static/azure-openai.png" alt="Azure OpenAI"></span>
+            <div><h3>Azure OpenAI</h3><p>Cloud · Managed GPT deployment</p></div>
+            <span class="status-pill {{ 'set' if azure_openai_api_key else 'unset' }}">{{ 'Configured' if azure_openai_api_key else 'Not set' }}</span>
           </div>
-          <div class="widget-content">
-            <div class="input-group">
-              <label for="azure_openai_api_key" class="input-label">API Key</label>
-              <input type="password" id="azure_openai_api_key" name="azure_openai_api_key" value="{{ azure_openai_api_key }}" class="input-field">
-            </div>
-            <div class="input-group">
-              <label for="azure_openai_endpoint" class="input-label">Endpoint URL</label>
-              <input type="text" id="azure_openai_endpoint" name="azure_openai_endpoint" value="{{ azure_openai_endpoint }}" class="input-field" placeholder="https://...">
-            </div>
-            <div class="input-group">
-              <label for="azure_openai_deployment" class="input-label">Deployment Name</label>
-              <input type="text" id="azure_openai_deployment" name="azure_openai_deployment" value="{{ azure_openai_deployment }}" class="input-field">
-            </div>
+          <div class="input-group">
+            <label for="azure_openai_api_key" class="input-label">API Key</label>
+            <input type="password" id="azure_openai_api_key" name="azure_openai_api_key" value="{{ azure_openai_api_key }}" class="input-field">
+          </div>
+          <div class="input-group">
+            <label for="azure_openai_endpoint" class="input-label">Endpoint URL</label>
+            <input type="text" id="azure_openai_endpoint" name="azure_openai_endpoint" value="{{ azure_openai_endpoint }}" class="input-field" placeholder="https://...">
+          </div>
+          <div class="input-group">
+            <label for="azure_openai_deployment" class="input-label">Deployment Name</label>
+            <input type="text" id="azure_openai_deployment" name="azure_openai_deployment" value="{{ azure_openai_deployment }}" class="input-field">
           </div>
         </div>
 
         <!-- Google Gemini -->
-        <div class="widget-card collapsed" id="card-gemini">
-          <div class="widget-header" onclick="toggleCard('card-gemini')">
-            <div class="header-main">
-              <span class="header-icon"><img src="/static/gemini-logo.png" alt="Gemini"></span>
-              <h3>Google Gemini</h3>
-            </div>
-            <div class="header-right">
-              <span class="status-pill {{ 'set' if gemini_api_key else 'unset' }}">{{ 'Configured' if gemini_api_key else 'Not set' }}</span>
-              <span class="toggle-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></span>
-            </div>
+        <div class="sp-pane" data-pane="gemini">
+          <div class="sp-pane-head">
+            <span class="sp-ic"><img src="/static/gemini-logo.png" alt="Gemini"></span>
+            <div><h3>Google Gemini</h3><p>Cloud · Gemini models</p></div>
+            <span class="status-pill {{ 'set' if gemini_api_key else 'unset' }}">{{ 'Configured' if gemini_api_key else 'Not set' }}</span>
           </div>
-          <div class="widget-content">
-            <div class="input-group">
-              <label for="gemini_api_key" class="input-label">API Key</label>
-              <input type="password" id="gemini_api_key" name="gemini_api_key" value="{{ gemini_api_key }}" class="input-field">
-            </div>
+          <div class="input-group">
+            <label for="gemini_api_key" class="input-label">API Key</label>
+            <input type="password" id="gemini_api_key" name="gemini_api_key" value="{{ gemini_api_key }}" class="input-field">
           </div>
         </div>
 
         <!-- Anthropic -->
-        <div class="widget-card collapsed" id="card-anthropic">
-          <div class="widget-header" onclick="toggleCard('card-anthropic')">
-            <div class="header-main">
-              <span class="header-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.3L20 10.5l-5.8 2.2L12 19l-2.2-6.3L4 10.5l5.8-2.2z"/></svg></span>
-              <h3>Anthropic (Claude)</h3>
-            </div>
-            <div class="header-right">
-              <span class="status-pill {{ 'set' if anthropic_api_key else 'unset' }}">{{ 'Configured' if anthropic_api_key else 'Not set' }}</span>
-              <span class="toggle-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></span>
-            </div>
+        <div class="sp-pane" data-pane="anthropic">
+          <div class="sp-pane-head">
+            <span class="sp-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.3L20 10.5l-5.8 2.2L12 19l-2.2-6.3L4 10.5l5.8-2.2z"></path></svg></span>
+            <div><h3>Anthropic (Claude)</h3><p>Cloud · Claude models</p></div>
+            <span class="status-pill {{ 'set' if anthropic_api_key else 'unset' }}">{{ 'Configured' if anthropic_api_key else 'Not set' }}</span>
           </div>
-          <div class="widget-content">
-            <div class="input-group">
-              <label for="anthropic_api_key" class="input-label">API Key</label>
-              <input type="password" id="anthropic_api_key" name="anthropic_api_key" value="{{ anthropic_api_key }}" class="input-field" placeholder="sk-ant-...">
-              <p class="input-help">Used to call Claude models as a scan target. Stored encrypted on this host.</p>
-            </div>
+          <div class="input-group">
+            <label for="anthropic_api_key" class="input-label">API Key</label>
+            <input type="password" id="anthropic_api_key" name="anthropic_api_key" value="{{ anthropic_api_key }}" class="input-field" placeholder="sk-ant-...">
+            <p class="input-help">Used to call Claude models as a scan target. Stored encrypted on this host.</p>
           </div>
         </div>
 
         <!-- Ollama -->
-        <div class="widget-card collapsed" id="card-ollama">
-          <div class="widget-header" onclick="toggleCard('card-ollama')">
-            <div class="header-main">
-              <span class="header-icon brand"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                <path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z"></path>
-              </svg></span>
-              <h3>Ollama (Local)</h3>
-            </div>
-            <div class="header-right">
-              <span class="status-pill {{ 'set' if ollama_api_url else 'unset' }}">{{ 'Configured' if ollama_api_url else 'Not set' }}</span>
-              <span class="toggle-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></span>
-            </div>
+        <div class="sp-pane" data-pane="ollama">
+          <div class="sp-pane-head">
+            <span class="sp-ic brand"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z"></path></svg></span>
+            <div><h3>Ollama (Local)</h3><p>Local · Open-source models</p></div>
+            <span class="status-pill {{ 'set' if ollama_api_url else 'unset' }}">{{ 'Configured' if ollama_api_url else 'Not set' }}</span>
           </div>
-          <div class="widget-content">
-            <div class="input-group">
-              <label for="ollama_api_url" class="input-label">API URL</label>
-              <input type="text" id="ollama_api_url" name="ollama_api_url" value="{{ ollama_api_url }}" class="input-field" placeholder="http://localhost:11434">
-            </div>
-            <div class="input-group">
-              <label for="ollama_timeout" class="input-label">Timeout (seconds)</label>
-              <input type="number" id="ollama_timeout" name="ollama_timeout" value="{{ ollama_timeout }}" class="input-field">
-            </div>
+          <div class="input-group">
+            <label for="ollama_api_url" class="input-label">API URL</label>
+            <input type="text" id="ollama_api_url" name="ollama_api_url" value="{{ ollama_api_url }}" class="input-field" placeholder="http://ollama-cpu:11434">
+          </div>
+          <div class="input-group">
+            <label for="ollama_timeout" class="input-label">Timeout (seconds)</label>
+            <input type="number" id="ollama_timeout" name="ollama_timeout" value="{{ ollama_timeout }}" class="input-field">
           </div>
         </div>
 
         <!-- Azure Content Safety -->
-        <div class="widget-card collapsed" id="card-azure-cs">
-          <div class="widget-header" onclick="toggleCard('card-azure-cs')">
-            <div class="header-main">
-              <span class="header-icon"><img src="/static/azure-openai.png" alt="Azure"></span>
-              <h3>Azure Content Safety</h3>
-            </div>
-            <div class="header-right">
-              <span class="status-pill {{ 'set' if azure_cs_key else 'unset' }}">{{ 'Configured' if azure_cs_key else 'Not set' }}</span>
-              <span class="toggle-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></span>
-            </div>
+        <div class="sp-pane" data-pane="azure-cs">
+          <div class="sp-pane-head">
+            <span class="sp-ic"><img src="/static/azure-openai.png" alt="Azure"></span>
+            <div><h3>Azure Content Safety</h3><p>Cloud · Content moderation</p></div>
+            <span class="status-pill {{ 'set' if azure_cs_key else 'unset' }}">{{ 'Configured' if azure_cs_key else 'Not set' }}</span>
           </div>
-          <div class="widget-content">
-            <div class="input-group">
-              <label for="azure_cs_endpoint" class="input-label">Endpoint URL</label>
-              <input type="text" id="azure_cs_endpoint" name="azure_cs_endpoint" value="{{ azure_cs_endpoint }}" class="input-field">
-            </div>
-            <div class="input-group">
-              <label for="azure_cs_key" class="input-label">API Key</label>
-              <input type="password" id="azure_cs_key" name="azure_cs_key" value="{{ azure_cs_key }}" class="input-field">
-            </div>
+          <div class="input-group">
+            <label for="azure_cs_endpoint" class="input-label">Endpoint URL</label>
+            <input type="text" id="azure_cs_endpoint" name="azure_cs_endpoint" value="{{ azure_cs_endpoint }}" class="input-field">
+          </div>
+          <div class="input-group">
+            <label for="azure_cs_key" class="input-label">API Key</label>
+            <input type="password" id="azure_cs_key" name="azure_cs_key" value="{{ azure_cs_key }}" class="input-field">
           </div>
         </div>
-      </div>
 
-      <div class="settings-actions">
-        <button type="submit" class="btn-gradient" style="padding: 1rem 2.5rem; font-size: 1rem;">Save All Changes</button>
-      </div>
+        <div class="sp-save">
+          <button type="submit" class="btn-gradient">Save changes</button>
+        </div>
+      </section>
     </div>
   </form>
 </div>
