@@ -1,9 +1,9 @@
-# Makefile for Lakera Demo
+# Makefile for AI Guardrails Demo
 
 .PHONY: help install dev prod test clean backup logs health
 
 help: ## Show this help message
-	@echo "Lakera Demo - Available Commands:"
+	@echo "AI Guardrails Demo - Available Commands:"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 

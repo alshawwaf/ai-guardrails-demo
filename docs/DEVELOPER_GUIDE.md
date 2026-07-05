@@ -1,6 +1,6 @@
 # Developer Guide
 
-Welcome to the Lakera Guard Demo developer documentation. This guide is designed to help you understand the project structure, set up your development environment, and contribute effectively.
+Welcome to the AI Guardrails Demo developer documentation. This guide is designed to help you understand the project structure, set up your development environment, and contribute effectively.
 
 ## Quick Start
 
@@ -13,8 +13,8 @@ Welcome to the Lakera Guard Demo developer documentation. This guide is designed
 
 1.  **Clone the repository**
     ```bash
-    git clone https://github.com/alshawwaf/Lakera-Demo.git
-    cd Lakera-Demo
+    git clone https://github.com/alshawwaf/AI Guardrails-Demo.git
+    cd AI Guardrails-Demo
     ```
 
 2.  **Set up Virtual Environment**
@@ -38,7 +38,7 @@ Welcome to the Lakera Guard Demo developer documentation. This guide is designed
 4.  **Configuration**
     Create a `.env` file in the root directory:
     ```env
-    # Lakera Guard
+    # AI Guardrails
     LAKERA_API_KEY=your_key
     LAKERA_PROJECT_ID=your_id
 
@@ -61,13 +61,13 @@ To run the application using Docker:
 
 1.  **Build the Docker Image**
     ```bash
-    docker build -t lakera-demo .
+    docker build -t ai-guardrails-demo .
     ```
 
 2.  **Run the Container**
     Make sure your `.env` file is configured.
     ```bash
-    docker run -p 9000:9000 --env-file .env lakera-demo
+    docker run -p 9000:9000 --env-file .env ai-guardrails-demo
     ```
 
 ## Architecture
@@ -79,10 +79,10 @@ The application follows a **modular hybrid architecture**, combining a Flask bac
 - **Database**: SQLite (via SQLAlchemy)
 - **Auth**: Flask-Login; all UI pages are `@login_required`. An initial admin is seeded from `DEFAULT_ADMIN_EMAIL` / `DEFAULT_ADMIN_PASSWORD`.
 - **API Routes**:
-    - `/api/analyze`: Core logic for Lakera Guard scans.
+    - `/api/analyze`: Core logic for AI Guardrails scans.
     - `/api/analytics`: Dashboard metrics.
     - `/api/logs`: Log management.
-    - `/api/compare`, `/api/scan/*`, `/api/benchmark/*`: Multi-vendor benchmarking (Lakera / Azure AI Content Safety / LLM Guard).
+    - `/api/compare`, `/api/scan/*`, `/api/benchmark/*`: Multi-vendor benchmarking (AI Guardrails / Azure AI Content Safety / LLM Guard).
 
 ### Frontend (`static/js/`)
 - **Entry Point**: `main.js` handles routing and dynamic imports.
@@ -95,13 +95,13 @@ The application follows a **modular hybrid architecture**, combining a Flask bac
 ### Data Flow
 1.  **User Input** → `playground.js`
 2.  **API Call** → `POST /api/analyze`
-3.  **Backend** → Lakera Guard Inbound → LLM (OpenAI/Azure/Gemini/Ollama) → Lakera Guard Outbound
+3.  **Backend** → AI Guardrails Inbound → LLM (OpenAI/Azure/Gemini/Ollama) → AI Guardrails Outbound
 4.  **Response** → Frontend Visualization (Traffic Flow)
 
 ## Project Structure
 
 ```
-lakera-demo/
+ai-guardrails-demo/
 ├── .github/               # CI/CD workflows
 ├── app.py                 # Main application entry point
 ├── data/                  # Static data files
@@ -205,6 +205,6 @@ If you encounter `Authentication failed` or `osxkeychain` errors on Linux:
 
 ## Resources
 
-- [Lakera Guard API Documentation](https://platform.lakera.ai/docs)
+- [AI Guardrails API Documentation](https://platform.lakera.ai/docs)
 - [Flask Documentation](https://flask.palletsprojects.com/)
 - [Chart.js Documentation](https://www.chartjs.org/)

@@ -17,7 +17,7 @@ single-container / Gunicorn deployment and the production checklist, see
 | `nginx` | `production` | Reverse proxy on ports `80`/`443` (config in `nginx/nginx.conf`). |
 | `backup` | `production` | Runs `scripts/backup_db.py` once per day. |
 
-All services share the `lakera-network` bridge network.
+All services share the `guardrails-network` bridge network.
 
 ## Usage
 

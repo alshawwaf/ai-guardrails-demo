@@ -1,4 +1,4 @@
-/* Toggle Switch Styles for Lakera Scan Options */
+/* Toggle Switch Styles for AI Guardrails Scan Options */
 .toggle-container {
   display: flex;
   align-items: center;
@@ -60,7 +60,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-/* Lakera branding accent */
+/* AI Guardrails branding accent */
 .toggle-input:checked + .toggle-label .toggle-text {
   color: var(--text-primary);
   font-weight: 500;

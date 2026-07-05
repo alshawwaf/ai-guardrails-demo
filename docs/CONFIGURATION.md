@@ -4,13 +4,13 @@
 
 All application settings can be configured via environment variables in the `.env` file.
 
-### Lakera Guard Configuration
+### AI Guardrails Configuration
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| `LAKERA_API_KEY` | Lakera Guard API authentication key | - | Yes |
-| `LAKERA_PROJECT_ID` | Lakera project identifier | - | Yes |
-| `LAKERA_API_URL` | Lakera API endpoint | `https://api.lakera.ai/v2/guard` | No |
+| `LAKERA_API_KEY` | AI Guardrails API authentication key | - | Yes |
+| `LAKERA_PROJECT_ID` | AI Guardrails project identifier | - | Yes |
+| `LAKERA_API_URL` | AI Guardrails API endpoint | `https://api.lakera.ai/v2/guard` | No |
 
 ### LLM Provider Configuration
 

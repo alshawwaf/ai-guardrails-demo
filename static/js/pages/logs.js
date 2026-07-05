@@ -57,14 +57,14 @@ export function initLogs() {
     if (exportJsonBtn) {
       exportJsonBtn.addEventListener("click", () => {
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-        triggerDownload("/api/logs/export/json", `lakera_logs_${timestamp}.json`);
+        triggerDownload("/api/logs/export/json", `guardrails_logs_${timestamp}.json`);
       });
     }
 
     if (exportCsvBtn) {
       exportCsvBtn.addEventListener("click", () => {
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-        triggerDownload("/api/logs/export/csv", `lakera_logs_${timestamp}.csv`);
+        triggerDownload("/api/logs/export/csv", `guardrails_logs_${timestamp}.csv`);
       });
     }
 

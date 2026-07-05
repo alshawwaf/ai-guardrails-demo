@@ -87,7 +87,7 @@
   margin: 0 1rem;
 }
 
-.lakera-logo {
+.guardrails-logo {
   height: 32px;
   width: auto;
   padding: 4px 8px;
@@ -96,7 +96,7 @@
   transition: background 0.3s ease;
 }
 
-.lakera-logo:hover {
+.guardrails-logo:hover {
   background: rgba(255, 255, 255, 1);
 }
 

@@ -112,8 +112,8 @@ limiter = Limiter(
 swagger_template = {
     "swagger": "2.0",
     "info": {
-        "title": "Lakera Demo API",
-        "description": "API documentation for the Lakera Demo application.",
+        "title": "AI Guardrails Demo API",
+        "description": "API documentation for the AI Guardrails Demo application.",
         "version": "1.0.0",
     },
     "basePath": "/",  # base bash for blueprint registration
@@ -777,7 +777,7 @@ def get_api_settings():
                 "AZURE_CONTENT_SAFETY_ENDPOINT"
             )
             or os.getenv("AZURE_CONTENT_SAFETY_ENDPOINT", ""),
-            "lakera_configured": bool(demo_api_key and demo_project_id),
+            "guardrails_configured": bool(demo_api_key and demo_project_id),
             "azure_configured": bool(azure_api_key and azure_endpoint and azure_deployment)
         }
     )
@@ -892,7 +892,7 @@ def scan_with_azure(text, config=None):
                 details.append(f"Violence: {response.violence_result.severity}")
             max_severity = max(severities) if severities else 0
 
-        # Normalize score to 0-100 to match Lakera (Azure is 0-7, so * 14.28 roughly)
+        # Normalize score to 0-100 to match AI Guardrails (Azure is 0-7, so * 14.28 roughly)
         normalized_score = (max_severity / 7) * 100
 
         # --- New: Add Prompt Shield (Jailbreak Detection) ---
@@ -952,19 +952,19 @@ def scan_with_azure(text, config=None):
         return res_obj
 
 
-def scan_lakera_wrapper(text, config):
+def scan_guardrails_wrapper(text, config):
     import time
 
     start_time = time.time()
     res_obj = {
-        "vendor": "Lakera Demo (Security Partner)",
+        "vendor": "AI Guardrails Demo (Security Partner)",
         "score": 0,
         "flagged": False,
         "details": [],
         "execution_time": 0,
     }
     if not config.get("api_key"):
-        res_obj["error"] = "Lakera API Key not configured"
+        res_obj["error"] = "AI Guardrails API Key not configured"
         return res_obj
 
     try:
@@ -1014,14 +1014,14 @@ def scan_lakera_wrapper(text, config):
                 }
             )
         else:
-            res_obj["error"] = f"Lakera API error: {resp.status_code}"
+            res_obj["error"] = f"AI Guardrails API error: {resp.status_code}"
             res_obj["details"] = [resp.text[:100]]
     except Exception as e:
-        logging.error(f"Lakera Wrapper Error: {e}")
+        logging.error(f"AI Guardrails Wrapper Error: {e}")
         res_obj["error"] = str(e)
         res_obj["details"] = ["Network error"]
         res_obj["execution_time"] = round(time.time() - start_time, 3)
-    logging.info(f"Lakera Scan Duration: {res_obj.get('execution_time')}")
+    logging.info(f"AI Guardrails Scan Duration: {res_obj.get('execution_time')}")
     return res_obj
 
 
@@ -1514,10 +1514,10 @@ def analyze():
             prompt:
               type: string
               example: "How do I make a bomb?"
-            use_lakera:
+            use_guardrails:
               type: boolean
               default: false
-            use_lakera_outbound:
+            use_guardrails_outbound:
               type: boolean
               default: false
             model_provider:
@@ -1534,9 +1534,9 @@ def analyze():
           properties:
             prompt:
               type: string
-            lakera_result:
+            guardrails_result:
               type: object
-            lakera_outbound_result:
+            guardrails_outbound_result:
               type: object
             openai_response:
               type: string
@@ -1554,24 +1554,24 @@ def analyze():
 
     data = request.json
     prompt = data.get("prompt")
-    use_lakera = data.get("use_lakera", False)
-    use_lakera_outbound = data.get("use_lakera_outbound", False)
+    use_guardrails = data.get("use_guardrails", False)
+    use_guardrails_outbound = data.get("use_guardrails_outbound", False)
 
     logging.info(f"Analyze request: {prompt[:100]}...")
 
     if not prompt:
         return jsonify({"error": "Prompt is required"}), 400
 
-    lakera_result = None
-    lakera_outbound_result = None
-    lakera_flagged = False
+    guardrails_result = None
+    guardrails_outbound_result = None
+    guardrails_flagged = False
 
-    # Common Lakera Config
+    # Common AI Guardrails Config
     url = os.getenv("DEMO_API_URL", "https://api.lakera.ai/v2/guard")
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    # 1. Lakera Inbound Scan (Conditional)
-    if use_lakera:
+    # 1. AI Guardrails Inbound Scan (Conditional)
+    if use_guardrails:
         payload = {
             "messages": [{"role": "user", "content": prompt}],
             "project_id": get_setting("DEMO_PROJECT_ID")
@@ -1581,24 +1581,24 @@ def analyze():
         try:
             response = requests.post(url, headers=headers, json=payload)
             if response.status_code != 200:
-                logging.error(f"Lakera API Error {response.status_code}: {response.text}")
+                logging.error(f"AI Guardrails API Error {response.status_code}: {response.text}")
                 
             response.raise_for_status()
-            lakera_result = response.json()
-            logging.info(f"Inbound: {prompt}\tSuccess\t{json.dumps(lakera_result)}")
+            guardrails_result = response.json()
+            logging.info(f"Inbound: {prompt}\tSuccess\t{json.dumps(guardrails_result)}")
 
-            if lakera_result.get("flagged", False):
-                lakera_flagged = True
+            if guardrails_result.get("flagged", False):
+                guardrails_flagged = True
 
         except requests.exceptions.RequestException as e:
-            print(f"DEBUG: Lakera Exception={e}", flush=True)
-            logging.error(f"Lakera API Exception: {e}")
+            print(f"DEBUG: AI Guardrails Exception={e}", flush=True)
+            logging.error(f"AI Guardrails API Exception: {e}")
             if hasattr(e, 'response') and e.response is not None:
-                 logging.error(f"Lakera API Response: {e.response.text}")
+                 logging.error(f"AI Guardrails API Response: {e.response.text}")
 
     # 2. OpenAI Chat (If safe or skipped)
     openai_response = None
-    if not lakera_flagged:
+    if not guardrails_flagged:
         model_provider = data.get("model_provider", "azure")
         model_name = data.get("model_name")
 
@@ -1731,9 +1731,9 @@ def analyze():
             else:
                 openai_response = "OpenAI API Key not configured."
 
-    # 3. Lakera Outbound Scan (Conditional)
+    # 3. AI Guardrails Outbound Scan (Conditional)
     if (
-        use_lakera_outbound
+        use_guardrails_outbound
         and openai_response
         and not openai_response.startswith("Error")
         and not openai_response.endswith("configured.")
@@ -1747,44 +1747,44 @@ def analyze():
             }
             out_response = requests.post(url, headers=headers, json=outbound_payload)
             out_response.raise_for_status()
-            lakera_outbound_result = out_response.json()
+            guardrails_outbound_result = out_response.json()
             logging.info(
-                f"Outbound: {openai_response[:50]}...\tSuccess\t{json.dumps(lakera_outbound_result)}"
+                f"Outbound: {openai_response[:50]}...\tSuccess\t{json.dumps(guardrails_outbound_result)}"
             )
         except Exception as e:
-            logging.error(f"Lakera Outbound Error: {e}")
+            logging.error(f"AI Guardrails Outbound Error: {e}")
 
     # 3. Log and Return
     inbound_vectors = []
     outbound_vectors = []
 
     # Collect inbound vectors
-    if lakera_result and lakera_result.get("breakdown"):
-        for r in lakera_result["breakdown"]:
+    if guardrails_result and guardrails_result.get("breakdown"):
+        for r in guardrails_result["breakdown"]:
             if r.get("detected") and r.get("detector_type"):
                 vector = r["detector_type"].split("/")[-1]
                 if vector not in inbound_vectors:
                     inbound_vectors.append(vector)
-        lakera_result["attack_vectors"] = inbound_vectors
+        guardrails_result["attack_vectors"] = inbound_vectors
 
     # Collect outbound vectors
-    if lakera_outbound_result and lakera_outbound_result.get("breakdown"):
-        for r in lakera_outbound_result["breakdown"]:
+    if guardrails_outbound_result and guardrails_outbound_result.get("breakdown"):
+        for r in guardrails_outbound_result["breakdown"]:
             if r.get("detected") and r.get("detector_type"):
                 vector = r["detector_type"].split("/")[-1]
                 if vector not in outbound_vectors:
                     outbound_vectors.append(vector)
-        lakera_outbound_result["attack_vectors"] = outbound_vectors
+        guardrails_outbound_result["attack_vectors"] = outbound_vectors
 
     # Combined vectors for top-level logging
     attack_vectors = list(set(inbound_vectors + outbound_vectors))
 
     # Create a consolidated result object for the database
     db_result = {
-        "flagged": lakera_flagged
-        or (lakera_outbound_result and lakera_outbound_result.get("flagged", False)),
-        "inbound_result": lakera_result,
-        "outbound_result": lakera_outbound_result,
+        "flagged": guardrails_flagged
+        or (guardrails_outbound_result and guardrails_outbound_result.get("flagged", False)),
+        "inbound_result": guardrails_result,
+        "outbound_result": guardrails_outbound_result,
         "openai_response": openai_response,
         "attack_vectors": attack_vectors,
     }
@@ -1797,12 +1797,12 @@ def analyze():
         "attack_vectors": attack_vectors,
         "request": {
             "prompt": prompt,
-            "use_lakera": use_lakera,
-            "use_lakera_outbound": use_lakera_outbound,
+            "use_guardrails": use_guardrails,
+            "use_guardrails_outbound": use_guardrails_outbound,
         },
         "response": {
-            "lakera_inbound": lakera_result,
-            "lakera_outbound": lakera_outbound_result,
+            "guardrails_inbound": guardrails_result,
+            "guardrails_outbound": guardrails_outbound_result,
             "openai": openai_response,
         },
     }
@@ -1819,10 +1819,10 @@ def analyze():
     return jsonify(
         {
             "prompt": prompt,
-            "lakera_result": lakera_result,
-            "lakera_outbound_result": lakera_outbound_result,
+            "guardrails_result": guardrails_result,
+            "guardrails_outbound_result": guardrails_outbound_result,
             "openai_response": openai_response,
-            "flagged": lakera_flagged,
+            "flagged": guardrails_flagged,
         }
     )
 
@@ -1998,7 +1998,7 @@ def export_logs_json():
         logs = []
 
     json_data = json.dumps(logs, indent=2)
-    filename = f"lakera_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    filename = f"guardrails_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
     response = make_response(json_data)
     response.headers["Content-Disposition"] = f"attachment; filename={filename}"
@@ -2071,7 +2071,7 @@ def export_logs_csv():
         )
 
     csv_data = buffer.getvalue()
-    filename = f"lakera_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"guardrails_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     response = make_response(csv_data)
     response.headers["Content-Type"] = "text/csv; charset=utf-8"
     response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -2180,23 +2180,23 @@ def get_analytics():
     )
 
 
-@app.route("/api/scan/lakera", methods=["POST"])
-def scan_lakera_endpoint():
+@app.route("/api/scan/guardrails", methods=["POST"])
+def scan_guardrails_endpoint():
     data = request.json
     prompt = data.get("prompt")
     if not prompt:
         return jsonify({"error": "No prompt provided"}), 400
 
-    lakera_config = {
+    guardrails_config = {
         "api_key": get_setting("DEMO_API_KEY") or os.getenv("DEMO_API_KEY"),
         "project_id": get_setting("DEMO_PROJECT_ID") or os.getenv("DEMO_PROJECT_ID"),
         "url": os.getenv("DEMO_API_URL", "https://api.lakera.ai/v2/guard"),
     }
 
-    if not lakera_config["api_key"]:
-        return jsonify({"error": "Lakera API key not configured"}), 400
+    if not guardrails_config["api_key"]:
+        return jsonify({"error": "AI Guardrails API key not configured"}), 400
 
-    result = scan_lakera_wrapper(prompt, lakera_config)
+    result = scan_guardrails_wrapper(prompt, guardrails_config)
     return jsonify(result)
 
 
@@ -2245,7 +2245,7 @@ def compare():
     if not prompt:
         return jsonify({"error": "No prompt provided"}), 400
 
-    lakera_config = {
+    guardrails_config = {
         "api_key": get_setting("DEMO_API_KEY") or os.getenv("DEMO_API_KEY"),
         "project_id": get_setting("DEMO_PROJECT_ID") or os.getenv("DEMO_PROJECT_ID"),
         "url": os.getenv("DEMO_API_URL", "https://api.lakera.ai/v2/guard"),
@@ -2263,9 +2263,9 @@ def compare():
     logging.info("Compare API: Launching parallel tasks")
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            future_lakera = executor.submit(scan_lakera_wrapper, prompt, lakera_config)
+            future_guardrails = executor.submit(scan_guardrails_wrapper, prompt, guardrails_config)
 
-            futures = {"Lakera": future_lakera}
+            futures = {"AI Guardrails": future_guardrails}
             if use_azure and azure_config["key"]:
                 futures["Azure"] = executor.submit(
                     scan_with_azure, prompt, azure_config
@@ -2290,7 +2290,7 @@ def compare():
                                 else (
                                     "Azure AI"
                                     if "Azure" in name
-                                    else "Lakera Demo (Security Partner)"
+                                    else "AI Guardrails Demo (Security Partner)"
                                 )
                             ),
                             "score": 0,

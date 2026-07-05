@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Database Backup Script for Lakera Demo
+Database Backup Script for AI Guardrails Demo
 
 This script creates a backup of the SQLite database with timestamp.
 """
@@ -58,6 +58,6 @@ def cleanup_old_backups(backup_dir, keep=10):
 
 
 if __name__ == "__main__":
-    print("Lakera Demo - Database Backup")
+    print("AI Guardrails Demo - Database Backup")
     print("=" * 50)
     backup_database()

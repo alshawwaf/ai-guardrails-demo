@@ -1,17 +1,17 @@
-# Lakera Demo
+# AI Guardrails Demo
 
-![Lakera Demo](https://img.shields.io/badge/Security-Lakera%20Demo-blueviolet?style=for-the-badge)
+![AI Guardrails Demo](https://img.shields.io/badge/Security-AI Guardrails%20Demo-blueviolet?style=for-the-badge)
 ![Python](https://img.shields.io/badge/Backend-Flask-green?style=for-the-badge)
 ![JavaScript](https://img.shields.io/badge/Frontend-ES6%20Modules-yellow?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey?style=for-the-badge)
 
-A demonstration platform for **Lakera Guard**, showcasing AI/LLM security capabilities through real-time prompt analysis, threat detection, and interactive visualization tools.
+A demonstration platform for **AI Guardrails**, showcasing AI/LLM security capabilities through real-time prompt analysis, threat detection, and interactive visualization tools.
 
 ---
 
 ## Overview
 
-This is a full-featured web application designed to demonstrate the power of the Lakera Guard security platform. It provides security professionals and AI developers with a hands-on environment to test, analyze, and understand LLM security vulnerabilities through an intuitive interface. Access is protected by a login screen (Flask-Login); an initial admin user is seeded from environment variables on first run.
+This is a full-featured web application designed to demonstrate the power of the AI Guardrails security platform. It provides security professionals and AI developers with a hands-on environment to test, analyze, and understand LLM security vulnerabilities through an intuitive interface. Access is protected by a login screen (Flask-Login); an initial admin user is seeded from environment variables on first run.
 
 ### Key Capabilities
 
@@ -66,7 +66,7 @@ This is a full-featured web application designed to demonstrate the power of the
 
 **AI Integration**
 
-- **Lakera Guard**: Primary security scanning engine (inbound + outbound)
+- **AI Guardrails**: Primary security scanning engine (inbound + outbound)
 - **OpenAI**: GPT model integration for response generation
 - **Azure OpenAI**: Enterprise OpenAI deployment support
 - **Google Gemini**: Google's generative AI model support
@@ -96,7 +96,7 @@ This is a full-featured web application designed to demonstrate the power of the
 Before installation, ensure you have the following:
 
 - **Python 3.11 or higher**: Required for application runtime
-- **Lakera Guard API Key**: Obtain from the [Lakera platform](https://platform.lakera.ai/)
+- **AI Guardrails API Key**: Obtain from the [AI Guardrails platform](https://platform.lakera.ai/)
 - **Optional LLM API Keys**: For OpenAI, Azure OpenAI, or Google Gemini integration
 - **Ollama** (optional): For local LLM testing (requires running instance)
 - **Docker** (optional): For containerized deployment
@@ -115,8 +115,8 @@ This project uses GitHub Actions (`.github/workflows/ci.yml`).
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/alshawwaf/Lakera-Demo.git
-   cd Lakera-Demo
+   git clone https://github.com/alshawwaf/AI Guardrails-Demo.git
+   cd AI Guardrails-Demo
    ```
 
 2. **Create Virtual Environment**
@@ -148,7 +148,7 @@ This project uses GitHub Actions (`.github/workflows/ci.yml`).
    Edit `.env` with your credentials:
 
    ```env
-   LAKERA_API_KEY=your_lakera_api_key
+   LAKERA_API_KEY=your_guardrails_api_key
    LAKERA_PROJECT_ID=your_project_id
    
    # Optional: Configure LLM providers
@@ -182,13 +182,13 @@ For containerized deployment:
 1. **Build the Docker Image**
 
    ```bash
-   docker build -t lakera-demo .
+   docker build -t ai-guardrails-demo .
    ```
 
 2. **Run the Container**
 
    ```bash
-   docker run -p 9000:9000 --env-file .env lakera-demo
+   docker run -p 9000:9000 --env-file .env ai-guardrails-demo
    ```
 
 ### Full Environment (with Redis)
@@ -230,9 +230,9 @@ The application supports the following configuration options via `.env`:
 
 | Variable | Description | Required | Default |
 |----------|-------------|----------|---------|
-| `LAKERA_API_KEY` | Lakera Guard API authentication key | Yes | - |
-| `LAKERA_PROJECT_ID` | Lakera project identifier | Yes | - |
-| `LAKERA_API_URL` | Lakera Guard API endpoint | No | `https://api.lakera.ai/v2/guard` |
+| `LAKERA_API_KEY` | AI Guardrails API authentication key | Yes | - |
+| `LAKERA_PROJECT_ID` | AI Guardrails project identifier | Yes | - |
+| `LAKERA_API_URL` | AI Guardrails API endpoint | No | `https://api.lakera.ai/v2/guard` |
 | `OPENAI_API_KEY` | OpenAI API key | No | - |
 | `OPENAI_API_URL` | OpenAI API endpoint | No | `https://api.openai.com/v1/chat/completions` |
 | `AZURE_OPENAI_API_KEY` | Azure OpenAI API key | No | - |
@@ -273,8 +273,8 @@ Additional settings can be configured through the Settings page in the web inter
 1. **Navigate to Playground**: Access the main testing interface
 2. **Enter Prompt**: Input text you want to scan for threats
 3. **Configure Options**:
-   - Enable Lakera Inbound scan for prompt analysis
-   - Enable Lakera Outbound scan for response checking
+   - Enable AI Guardrails Inbound scan for prompt analysis
+   - Enable AI Guardrails Outbound scan for response checking
    - Select LLM provider and model
 4. **Execute Scan**: Click "Scan Input" to process
 5. **Review Results**: Examine the traffic flow visualization and threat detection results
@@ -313,8 +313,8 @@ Interactive API documentation is available at `/apidocs/` when the application i
 - `GET /api/logs/export/csv` / `GET /api/logs/export/json` - Export logs
 - `GET /api/analytics` - Dashboard analytics data
 - `GET /api/triggers` - List available attack triggers
-- `POST /api/scan/lakera` / `POST /api/scan/azure` / `POST /api/scan/llmguard` - Single-engine scans
-- `POST /api/compare` - Compare a prompt across Lakera / Azure / LLM Guard
+- `POST /api/scan/guardrails` / `POST /api/scan/azure` / `POST /api/scan/llmguard` - Single-engine scans
+- `POST /api/compare` - Compare a prompt across AI Guardrails / Azure / LLM Guard
 - `GET /api/benchmark/history` / `GET /api/benchmark/stats` - Benchmarking data
 - `GET /api/models/status` / `POST /api/models/toggle` / `POST /api/models/download` - Local model management
 
@@ -323,7 +323,7 @@ Interactive API documentation is available at `/apidocs/` when the application i
 ## Project Structure
 
 ```
-Lakera-Demo/
+AI Guardrails-Demo/
 ├── app.py                  # Main Flask application (routes, DB models, scan logic)
 ├── Dockerfile              # Container configuration (Python 3.11-slim, CPU-only torch)
 ├── docker-compose.yml      # Full environment (web + Redis + Redis Commander; production profile adds Nginx + backup)
@@ -404,4 +404,4 @@ For issues, questions, or contributions:
 
 - Open an issue on GitHub
 - Consult the documentation
-- Contact Lakera support for API-related questions
+- Contact AI Guardrails support for API-related questions

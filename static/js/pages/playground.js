@@ -167,21 +167,21 @@ export function initPlayground() {
         fetch("/api/settings")
             .then(res => res.json())
             .then(settings => {
-                const lakeraInbound = document.getElementById("lakera-scan-checkbox");
-                const lakeraOutbound = document.getElementById("lakera-outbound-checkbox");
+                const guardrailsInbound = document.getElementById("guardrails-scan-checkbox");
+                const guardrailsOutbound = document.getElementById("guardrails-outbound-checkbox");
                 
-                if (!settings.lakera_configured) {
-                    if (lakeraInbound) {
-                        lakeraInbound.disabled = true;
-                        lakeraInbound.parentElement.title = "Lakera API Key and Project ID required in Settings";
-                        lakeraInbound.parentElement.style.opacity = "0.5";
-                        lakeraInbound.parentElement.style.cursor = "not-allowed";
+                if (!settings.guardrails_configured) {
+                    if (guardrailsInbound) {
+                        guardrailsInbound.disabled = true;
+                        guardrailsInbound.parentElement.title = "AI Guardrails API Key and Project ID required in Settings";
+                        guardrailsInbound.parentElement.style.opacity = "0.5";
+                        guardrailsInbound.parentElement.style.cursor = "not-allowed";
                     }
-                    if (lakeraOutbound) {
-                        lakeraOutbound.disabled = true;
-                        lakeraOutbound.parentElement.title = "Lakera API Key and Project ID required in Settings";
-                        lakeraOutbound.parentElement.style.opacity = "0.5";
-                        lakeraOutbound.parentElement.style.cursor = "not-allowed";
+                    if (guardrailsOutbound) {
+                        guardrailsOutbound.disabled = true;
+                        guardrailsOutbound.parentElement.title = "AI Guardrails API Key and Project ID required in Settings";
+                        guardrailsOutbound.parentElement.style.opacity = "0.5";
+                        guardrailsOutbound.parentElement.style.cursor = "not-allowed";
                     }
                 }
             })
@@ -251,8 +251,8 @@ export function initPlayground() {
     if (analyzeBtn) {
         analyzeBtn.addEventListener("click", async () => {
             const prompt = promptInput.value.trim();
-            const useLakera = document.getElementById("lakera-scan-checkbox").checked;
-            const useLakeraOutbound = document.getElementById("lakera-outbound-checkbox").checked;
+            const useGuardrails = document.getElementById("guardrails-scan-checkbox").checked;
+            const useGuardrailsOutbound = document.getElementById("guardrails-outbound-checkbox").checked;
 
             if (!prompt) return;
 
@@ -268,8 +268,8 @@ export function initPlayground() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         prompt,
-                        use_lakera: useLakera,
-                        use_lakera_outbound: useLakeraOutbound,
+                        use_guardrails: useGuardrails,
+                        use_guardrails_outbound: useGuardrailsOutbound,
                         model_provider: modelProvider,
                         model_name: modelName
                     }),
@@ -463,8 +463,8 @@ export function initPlayground() {
         const total = examples.length;
 
         // Get current settings for the batch run
-        const useLakera = document.getElementById("lakera-scan-checkbox").checked;
-        const useLakeraOutbound = document.getElementById("lakera-outbound-checkbox").checked;
+        const useGuardrails = document.getElementById("guardrails-scan-checkbox").checked;
+        const useGuardrailsOutbound = document.getElementById("guardrails-outbound-checkbox").checked;
         const modelProvider = providerSelect ? providerSelect.value : 'openai';
         const modelName = modelSelect ? modelSelect.value : '';
 
@@ -486,8 +486,8 @@ export function initPlayground() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         prompt: example.prompt,
-                        use_lakera: useLakera,
-                        use_lakera_outbound: useLakeraOutbound,
+                        use_guardrails: useGuardrails,
+                        use_guardrails_outbound: useGuardrailsOutbound,
                         model_provider: modelProvider,
                         model_name: modelName
                     }),

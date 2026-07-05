@@ -67,7 +67,7 @@ services:
         condition: service_healthy
 
     networks:
-      - lakera-network
+      - guardrails-network
 
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:${APP_PORT:-9000}/health" ]
@@ -79,8 +79,8 @@ services:
     restart: unless-stopped
 
     labels:
-      - "com.lakera.demo=true"
-      - "com.lakera.service=web"
+      - "com.aiguardrails.demo=true"
+      - "com.aiguardrails.service=web"
 
   # Redis for distributed rate limiting
   redis:
@@ -91,7 +91,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - lakera-network
+      - guardrails-network
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -99,8 +99,8 @@ services:
       retries: 3
     restart: unless-stopped
     labels:
-      - "com.lakera.demo=true"
-      - "com.lakera.service=redis"
+      - "com.aiguardrails.demo=true"
+      - "com.aiguardrails.service=redis"
 
   # Redis Commander - Web UI for Redis
   redis-commander:
@@ -110,13 +110,13 @@ services:
     ports:
       - "8082:8081"
     networks:
-      - lakera-network
+      - guardrails-network
     depends_on:
       - redis
     restart: unless-stopped
     labels:
-      - "com.lakera.demo=true"
-      - "com.lakera.service=redis-ui"
+      - "com.aiguardrails.demo=true"
+      - "com.aiguardrails.service=redis-ui"
 
   # Nginx reverse proxy (optional - for production)
   nginx:
@@ -130,11 +130,11 @@ services:
     depends_on:
       - web
     networks:
-      - lakera-network
+      - guardrails-network
     restart: unless-stopped
     labels:
-      - "com.lakera.demo=true"
-      - "com.lakera.service=nginx"
+      - "com.aiguardrails.demo=true"
+      - "com.aiguardrails.service=nginx"
     profiles:
       - production
 
@@ -150,19 +150,19 @@ services:
       - ./instance:/app/instance
       - ./backups:/app/backups
     networks:
-      - lakera-network
+      - guardrails-network
     restart: unless-stopped
     labels:
-      - "com.lakera.demo=true"
-      - "com.lakera.service=backup"
+      - "com.aiguardrails.demo=true"
+      - "com.aiguardrails.service=backup"
     profiles:
       - production
 
 networks:
-  lakera-network:
+  guardrails-network:
     driver: bridge
-    name: lakera-network
+    name: guardrails-network
 
 volumes:
   redis-data:
-    name: lakera-demo-redis-data
+    name: ai-guardrails-demo-redis-data

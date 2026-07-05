@@ -28,7 +28,7 @@ export function displayResults(data) {
           <span class="status-icon">📊</span>
           <span class="status-text">Market Comparison</span>
         </span>
-        <span class="compact-model-badge">Lakera vs Competitors</span>
+        <span class="compact-model-badge">AI Guardrails vs Competitors</span>
       </div>
       <button class="close-modal-btn" id="close-result-modal">&times;</button>
     `;
@@ -137,15 +137,15 @@ export function displayResults(data) {
 
   } else {
     // --- Standard View Logic (Existing) ---
-    const lakeraResult = data.lakera_result;
-    const lakeraOutboundResult = data.lakera_outbound_result;
+    const guardrailsResult = data.guardrails_result;
+    const guardrailsOutboundResult = data.guardrails_outbound_result;
     const isFlagged = data.flagged;
     const isOutboundFlagged =
-      lakeraOutboundResult && lakeraOutboundResult.flagged;
+      guardrailsOutboundResult && guardrailsOutboundResult.flagged;
 
     let headerClass, statusIcon, statusText, statusColor;
 
-    if (!lakeraResult) {
+    if (!guardrailsResult) {
       headerClass = "neutral";
       statusIcon = "○";
       statusText = "Not Scanned";
@@ -189,24 +189,24 @@ export function displayResults(data) {
     const flowCard = document.createElement("div");
     flowCard.className = "modal-card compact-flow-card";
 
-    const useLakera = document.getElementById("lakera-scan-checkbox").checked;
-    const useLakeraOutbound = document.getElementById(
-      "lakera-outbound-checkbox"
+    const useGuardrails = document.getElementById("guardrails-scan-checkbox").checked;
+    const useGuardrailsOutbound = document.getElementById(
+      "guardrails-outbound-checkbox"
     ).checked;
 
-    const flowDiagram = renderTrafficFlow(data, useLakera, useLakeraOutbound);
+    const flowDiagram = renderTrafficFlow(data, useGuardrails, useGuardrailsOutbound);
     flowDiagram.classList.add("modal-pipeline");
     flowCard.appendChild(flowDiagram);
     flagsContainer.appendChild(flowCard);
 
     const inboundVectors =
-      lakeraResult && lakeraResult.attack_vectors
-        ? lakeraResult.attack_vectors
+      guardrailsResult && guardrailsResult.attack_vectors
+        ? guardrailsResult.attack_vectors
         : [];
     const outboundVectors = [];
 
-    if (lakeraOutboundResult && lakeraOutboundResult.breakdown) {
-      lakeraOutboundResult.breakdown.forEach((r) => {
+    if (guardrailsOutboundResult && guardrailsOutboundResult.breakdown) {
+      guardrailsOutboundResult.breakdown.forEach((r) => {
         if (r.detected && r.detector_type) {
           const vectorName = r.detector_type.split("/").pop();
           if (!outboundVectors.includes(vectorName)) {
@@ -306,14 +306,14 @@ function createAttackCard(vector) {
 /**
  * Render traffic flow diagram
  * @param {Object} data - Analysis result data
- * @param {boolean} useLakera - Whether inbound scan is enabled
- * @param {boolean} useLakeraOutbound - Whether outbound scan is enabled
+ * @param {boolean} useGuardrails - Whether inbound scan is enabled
+ * @param {boolean} useGuardrailsOutbound - Whether outbound scan is enabled
  * @returns {HTMLElement} Traffic flow container
  */
-function renderTrafficFlow(data, useLakera, useLakeraOutbound) {
+function renderTrafficFlow(data, useGuardrails, useGuardrailsOutbound) {
   // Modernized: delegates to the shared pipeline renderer (components/
   // pipeline.css). Node clicks still open the JSON detail pane below.
-  return renderScanPipeline(data, useLakera, useLakeraOutbound, (id) =>
+  return renderScanPipeline(data, useGuardrails, useGuardrailsOutbound, (id) =>
     showStepDetails(id, data)
   );
 }
@@ -337,8 +337,8 @@ function showStepDetails(stepId, data) {
       break;
     case "inbound":
       title = "Demo Inbound Scan";
-      content = data.lakera_result
-        ? JSON.stringify(data.lakera_result, null, 2)
+      content = data.guardrails_result
+        ? JSON.stringify(data.guardrails_result, null, 2)
         : "No scan performed.";
       break;
     case "llm":
@@ -355,8 +355,8 @@ function showStepDetails(stepId, data) {
       break;
     case "outbound":
       title = "Demo Outbound Scan";
-      content = data.lakera_outbound_result
-        ? JSON.stringify(data.lakera_outbound_result, null, 2)
+      content = data.guardrails_outbound_result
+        ? JSON.stringify(data.guardrails_outbound_result, null, 2)
         : "No scan performed.";
       break;
     case "user-response":

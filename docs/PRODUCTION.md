@@ -30,7 +30,7 @@ gunicorn -w 4 -b 0.0.0.0:9000 --timeout 120 app:app
 
 - [ ] Configure all environment variables in `.env`
 - [ ] Set `APP_PORT` if not using default 9000
-- [ ] Configure API keys for Lakera Guard
+- [ ] Configure API keys for AI Guardrails
 - [ ] (Optional) Configure LLM providers
 - [ ] Set up regular database backups
 - [ ] Configure reverse proxy (nginx/Apache)
@@ -55,7 +55,7 @@ This will:
 
 Add to crontab for daily backups:
 ```cron
-0 2 * * * cd /path/to/lakera-demo && python scripts/backup_db.py
+0 2 * * * cd /path/to/ai-guardrails-demo && python scripts/backup_db.py
 ```
 
 ## Monitoring
@@ -179,10 +179,10 @@ docker compose restart web
 
 ```bash
 # Check database file exists
-ls -lh instance/lakera_logs.db
+ls -lh instance/guardrails_logs.db
 
 # Restore from backup
-cp backups/lakera_logs_backup_YYYYMMDD_HHMMSS.db instance/lakera_logs.db
+cp backups/guardrails_logs_backup_YYYYMMDD_HHMMSS.db instance/guardrails_logs.db
 ```
 
 ### High Memory Usage

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Lakera Guard Demo is a Flask application with a vanilla-JavaScript frontend built from ES6 modules. The frontend uses a single module entry point (`static/js/main.js`) that page-detects and dynamically imports the relevant page module (code-splitting).
+The AI Guardrails Demo is a Flask application with a vanilla-JavaScript frontend built from ES6 modules. The frontend uses a single module entry point (`static/js/main.js`) that page-detects and dynamically imports the relevant page module (code-splitting).
 
 ## File Organization
 
@@ -30,7 +30,7 @@ static/js/
 
 **`shared/traffic-flow.js`**
 - `displayResults(data)` - Renders analysis results in modal
-- `renderTrafficFlow(data, useLakera, useLakeraOutbound)` - Creates traffic flow diagram
+- `renderTrafficFlow(data, useGuardrails, useGuardrailsOutbound)` - Creates traffic flow diagram
 - `showStepDetails(stepId, data)` - Shows details pane for flow steps
 
 Creates interactive flow: **User → Inbound → LLM → Outbound → User Response**
@@ -187,8 +187,8 @@ Playground → POST /api/analyze → Flask Route
 ```json
 {
   "prompt": "user input",
-  "use_lakera": true,
-  "use_lakera_outbound": true,
+  "use_guardrails": true,
+  "use_guardrails_outbound": true,
   "model_provider": "openai",
   "model_name": "gpt-4"
 }
@@ -197,7 +197,7 @@ Playground → POST /api/analyze → Flask Route
 ### 2. Backend Processing
 
 ```
-Flask → Lakera Inbound → OpenAI/Azure → Lakera Outbound → Response
+Flask → AI Guardrails Inbound → OpenAI/Azure → AI Guardrails Outbound → Response
 ```
 
 **Database Storage:**
@@ -211,9 +211,9 @@ Flask → Lakera Inbound → OpenAI/Azure → Lakera Outbound → Response
 // Response structure
 {
   "flagged": boolean,
-  "lakera_result": {...},
+  "guardrails_result": {...},
   "openai_response": "...",
-  "lakera_outbound_result": {...},
+  "guardrails_outbound_result": {...},
   "model_provider": "openai"
 }
 ```
@@ -270,7 +270,7 @@ import('./pages/dashboard.js').then(module => {
 
 ### User Input
 - Sanitized before display
-- Lakera Guard scans all inputs
+- AI Guardrails scans all inputs
 - No direct eval() or innerHTML with user data
 
 ### CORS
@@ -334,4 +334,4 @@ import('./pages/dashboard.js').then(module => {
 - [ES6 Modules (MDN)](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules)
 - [Dynamic Imports](https://javascript.info/modules-dynamic-imports)
 - [Flask Documentation](https://flask.palletsprojects.com/)
-- [Lakera API Docs](https://platform.lakera.ai/docs)
+- [AI Guardrails API Docs](https://platform.lakera.ai/docs)

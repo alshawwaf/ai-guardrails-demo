@@ -150,8 +150,8 @@ export function initHeroPipeline(root) {
 
 // ---- Live result flow (driven by real scan data) --------------------------
 export function scanToStages(data, useInbound, useOutbound) {
-  const inboundBlocked = data.lakera_result && data.lakera_result.flagged;
-  const outboundBlocked = data.lakera_outbound_result && data.lakera_outbound_result.flagged;
+  const inboundBlocked = data.guardrails_result && data.guardrails_result.flagged;
+  const outboundBlocked = data.guardrails_outbound_result && data.guardrails_outbound_result.flagged;
   const llmRan = !inboundBlocked && !!data.openai_response;
   let provider = "OpenAI";
   if (data.model_provider === "azure") provider = "Azure";

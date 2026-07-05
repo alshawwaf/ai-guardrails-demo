@@ -534,7 +534,7 @@
 
   /* Print Header */
   .dashboard-wrapper::before {
-    content: "Lakera Demo Security Report - Generated on " attr(data-print-date);
+    content: "AI Guardrails Demo Security Report - Generated on " attr(data-print-date);
     display: block;
     font-size: 1.2rem;
     font-weight: bold;

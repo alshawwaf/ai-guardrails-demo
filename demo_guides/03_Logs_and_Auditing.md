@@ -21,11 +21,11 @@ You can filter the logs to find specific events:
 
 ## 3. Detailed Analysis
 
-Clicking on any row in the log table opens a detailed view (JSON payload). This contains the raw data returned by Lakera Demo, including:
+Clicking on any row in the log table opens a detailed view (JSON payload). This contains the raw data returned by AI Guardrails Demo, including:
 
 *   **Full Prompt**: The complete text of the user input.
 *   **Model Used**: The LLM model that was targeted.
-*   **Lakera Response**: The detailed security analysis, including scores for various detectors.
+*   **AI Guardrails Response**: The detailed security analysis, including scores for various detectors.
 
 ## 4. Exporting Data
 

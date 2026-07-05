@@ -1,6 +1,6 @@
 # Azure AI Content Safety Setup Guide
 
-This guide describes how to configure Azure AI Content Safety to work with the Lakera Demo application.
+This guide describes how to configure Azure AI Content Safety to work with the AI Guardrails Demo application.
 
 ## 1. Create the Azure Resource
 
@@ -11,7 +11,7 @@ This guide describes how to configure Azure AI Content Safety to work with the L
     * **Subscription**: Select your active Azure subscription.
     * **Resource Group**: Select an existing one or create a new one.
     * **Region**: Choose a region close to you (e.g., East US).
-    * **Name**: Give your resource a unique name (e.g., `lakera-demo-safety`).
+    * **Name**: Give your resource a unique name (e.g., `ai-guardrails-demo-safety`).
     * **Pricing Tier**: Choose **F0 (Free)** if available, or **S0**.
 5. Click **Review + create**, then **Create**.
 6. Once deployed, navigate to the resource.
@@ -50,4 +50,4 @@ This guide describes how to configure Azure AI Content Safety to work with the L
 3. Check the logs or the real-time results for a row labeled **Azure AI**. If configured correctly, it will show a score and severity breakdown.
 
 > [!TIP]
-> Azure Content Safety classifies content into four categories: Hate, Self-Harm, Sexual, and Violence. The app normalizes these 0-7 severity levels into a 0-100 score for easy comparison with Lakera.
+> Azure Content Safety classifies content into four categories: Hate, Self-Harm, Sexual, and Violence. The app normalizes these 0-7 severity levels into a 0-100 score for easy comparison with AI Guardrails.

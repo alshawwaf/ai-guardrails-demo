@@ -2,11 +2,11 @@
 
 The Settings page allows you to configure the application's connections to external services and customize its behavior.
 
-## 1. Lakera Configuration
+## 1. AI Guardrails Configuration
 
-This is the most critical section. You must provide valid credentials to use Lakera Demo.
+This is the most critical section. You must provide valid credentials to use AI Guardrails Demo.
 
-*   **Lakera API Key**: Your secret key from the Lakera Platform.
+*   **AI Guardrails API Key**: Your secret key from the AI Guardrails Platform.
 *   **Project ID**: The specific project identifier associated with your key.
 
 ## 2. LLM Providers

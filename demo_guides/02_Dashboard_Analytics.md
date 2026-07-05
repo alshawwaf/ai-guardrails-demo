@@ -7,7 +7,7 @@ The Dashboard provides a high-level view of your application's security posture.
 At the top of the dashboard, you will see three key metric cards:
 
 *   **Total Scans**: The aggregate number of prompts processed by the system.
-*   **Threats Blocked**: The number of prompts or responses that triggered a Lakera Demo protection.
+*   **Threats Blocked**: The number of prompts or responses that triggered a AI Guardrails Demo protection.
 *   **Block Rate**: The percentage of traffic that was identified as malicious (Threats Blocked / Total Scans).
 
 ## 2. Visualizations

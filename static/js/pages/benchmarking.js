@@ -22,7 +22,7 @@ export function initBenchmarking() {
     progressModal = document.getElementById('progress-modal');
     errorModal = document.getElementById('error-modal');
     steps = {
-        lakera: document.getElementById('progress-lakera'),
+        guardrails: document.getElementById('progress-guardrails'),
         azure: document.getElementById('progress-azure'),
         llmguard: document.getElementById('progress-llmguard')
     };
@@ -128,8 +128,8 @@ async function startBenchmark() {
         };
 
         const promises = [];
-        // 1. Lakera
-        promises.push(runScan('Lakera', '/api/scan/lakera', 'prompt', 'lakera'));
+        // 1. AI Guardrails
+        promises.push(runScan('AI Guardrails', '/api/scan/guardrails', 'prompt', 'guardrails'));
 
         // 2. Azure (if enabled)
         if (useAzure) {
@@ -178,11 +178,11 @@ function resetProgressSteps(config, toggles = {}) {
         const status = step.querySelector('.step-status');
 
         // Check configuration and user toggles
-        const isConfigured = (key === 'lakera' && config.DEMO_API_KEY) ||
+        const isConfigured = (key === 'guardrails' && config.DEMO_API_KEY) ||
             (key === 'azure' && config.AZURE_CONTENT_SAFETY_KEY) ||
             (key === 'llmguard'); // LLM Guard is local/built-in
 
-        const isToggledOn = key === 'lakera' || (key === 'azure' && toggles.useAzure) || (key === 'llmguard' && toggles.useLLMGuard);
+        const isToggledOn = key === 'guardrails' || (key === 'azure' && toggles.useAzure) || (key === 'llmguard' && toggles.useLLMGuard);
 
         if (!isConfigured) {
             markStepStatus(key, 'Skipped (Not Configured)', 'disabled');
@@ -340,14 +340,14 @@ function addHistoryRow(item, prepend = false) {
     const results = item.results || item.result?.results || [];
 
     // Find vendor specific results
-    const lakera = results.find(r => r.vendor.includes('Lakera'));
+    const guardrails = results.find(r => r.vendor.includes('AI Guardrails'));
     const azure = results.find(r => r.vendor.includes('Azure'));
     const llmguard = results.find(r => r.vendor.includes('LLM Guard'));
 
     row.innerHTML = `
         <td class="time-cell">${formatTimeAgo(item.timestamp)}</td>
         <td class="prompt-cell" title="${escapeHtml(item.prompt)}">${escapeHtml(item.prompt)}</td>
-        <td>${getStatusCell(lakera)}</td>
+        <td>${getStatusCell(guardrails)}</td>
         <td>${getStatusCell(azure)}</td>
         <td>${getStatusCell(llmguard)}</td>
         <td>
