@@ -204,3 +204,35 @@
     padding: 1rem;
   }
 }
+/* ============================================================================
+   Settings overhaul — modern brand design (glass cards, gradient hero/hairline,
+   icon chips, status pills). Theme-aware; appended last so it refines the base.
+   ============================================================================ */
+.dashboard-wrapper { max-width: 1120px; margin: 0 auto; }
+.settings-hero { position: relative; overflow: hidden; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 20px; padding: 1.8rem 2.1rem; margin-bottom: 1.8rem; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 24px 48px -26px rgba(120,70,200,.3); }
+.settings-hero::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--brand-gradient); }
+.settings-hero .hero-badge { display: inline-flex; align-items: center; padding: .35rem .8rem; border-radius: 999px; background: linear-gradient(135deg, rgba(99,102,241,.14), rgba(236,72,153,.14)); border: 1px solid rgba(124,58,237,.25); color: #6d28d9; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.settings-hero h1 { font-family: var(--font-family-heading); font-size: 1.7rem; margin: .6rem 0 .35rem; background: var(--brand-gradient); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.settings-hero p { color: var(--text-secondary); margin: 0; font-size: .95rem; max-width: 62ch; }
+
+.settings-grid { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.5rem; }
+.widget-card { position: relative; overflow: hidden; border-radius: 18px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 20px 44px -30px rgba(120,70,200,.28); }
+.widget-card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--brand-gradient); opacity: 0; transition: opacity .2s ease; z-index: 1; }
+.widget-card:not(.collapsed)::before, .widget-card:hover::before { opacity: .9; }
+.widget-header { padding: 1.25rem 1.5rem; }
+.header-main { gap: .9rem; }
+.header-icon { width: 40px; height: 40px; border-radius: 12px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; background: var(--bg-secondary); border: 1px solid var(--border-color); }
+.header-icon img { width: 22px; height: 22px; object-fit: contain; }
+.header-icon svg { width: 20px; height: 20px; color: var(--text-primary); }
+.header-icon.brand { background: var(--brand-gradient); border-color: transparent; box-shadow: 0 8px 18px -10px rgba(168,85,247,.6); }
+.header-icon.brand img, .header-icon.brand svg { filter: brightness(0) invert(1); color: #fff; }
+.widget-header h3 { font-size: 1.05rem; font-weight: 700; }
+.header-right { display: flex; align-items: center; gap: .7rem; }
+.status-pill { font-size: .66rem; font-weight: 700; padding: .22rem .6rem; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; }
+.status-pill.set { color: var(--success-color); background: rgba(34,197,94,.14); }
+.status-pill.unset { color: var(--text-secondary); background: var(--nav-link-hover); }
+.toggle-icon { transition: transform .2s ease; }
+.widget-card:not(.collapsed) .toggle-icon { transform: rotate(180deg); }
+.input-field { border: 1px solid rgba(124,58,237,.16); border-radius: 12px; }
+.input-field:focus { border-color: rgba(124,58,237,.5); box-shadow: 0 0 0 4px rgba(124,58,237,.14); }
+.settings-actions .btn-gradient { border-radius: 14px; }
