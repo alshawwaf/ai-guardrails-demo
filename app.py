@@ -1652,7 +1652,8 @@ def analyze():
             )
             try:
                 payload = {
-                    "model": model_name or "llama3",
+                    "model": model_name
+                    or os.getenv("OLLAMA_MODEL", "richardyoung/mythos-9b-unhinged-abliterated:latest"),
                     "prompt": prompt,
                     "stream": False,
                 }
