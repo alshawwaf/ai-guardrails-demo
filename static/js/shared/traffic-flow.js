@@ -197,6 +197,7 @@ export function displayResults(data) {
     let providerLabel = "OpenAI";
     if (data.model_provider === "azure") providerLabel = "Azure";
     else if (data.model_provider === "gemini") providerLabel = "Gemini";
+    else if (data.model_provider === "anthropic") providerLabel = "Claude";
     else if (data.model_provider === "ollama") providerLabel = "Ollama";
 
     const modelDisplay = data.model_name ? `${providerLabel} · ${data.model_name}` : providerLabel;

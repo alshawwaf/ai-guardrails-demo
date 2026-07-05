@@ -114,6 +114,27 @@
           </div>
         </div>
 
+        <!-- Anthropic -->
+        <div class="widget-card collapsed" id="card-anthropic">
+          <div class="widget-header" onclick="toggleCard('card-anthropic')">
+            <div class="header-main">
+              <span class="header-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.3L20 10.5l-5.8 2.2L12 19l-2.2-6.3L4 10.5l5.8-2.2z"/></svg></span>
+              <h3>Anthropic (Claude)</h3>
+            </div>
+            <div class="header-right">
+              <span class="status-pill {{ 'set' if anthropic_api_key else 'unset' }}">{{ 'Configured' if anthropic_api_key else 'Not set' }}</span>
+              <span class="toggle-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></span>
+            </div>
+          </div>
+          <div class="widget-content">
+            <div class="input-group">
+              <label for="anthropic_api_key" class="input-label">API Key</label>
+              <input type="password" id="anthropic_api_key" name="anthropic_api_key" value="{{ anthropic_api_key }}" class="input-field" placeholder="sk-ant-...">
+              <p class="input-help">Used to call Claude models as a scan target. Stored encrypted on this host.</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Ollama -->
         <div class="widget-card collapsed" id="card-ollama">
           <div class="widget-header" onclick="toggleCard('card-ollama')">

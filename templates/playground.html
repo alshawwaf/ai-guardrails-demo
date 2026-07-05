@@ -50,6 +50,7 @@
                     <option value="azure" {{ 'selected' if default_provider == 'azure' else '' }}>Azure OpenAI</option>
                     <option value="openai" {{ 'selected' if default_provider == 'openai' else '' }}>OpenAI</option>
                     <option value="gemini" {{ 'selected' if default_provider == 'gemini' else '' }}>Google Gemini</option>
+                    <option value="anthropic" {{ 'selected' if default_provider == 'anthropic' else '' }}>Anthropic (Claude)</option>
                     <option value="ollama" {{ 'selected' if default_provider == 'ollama' else '' }}>Ollama (Local LLMs)</option>
                 </select>
                 <div class="custom-select-container" id="model-select-wrapper">
@@ -185,6 +186,7 @@
         deployment: "{{ azure_deployment }}"
     },
     gemini: {{ gemini_models | tojson }},
+    anthropic: {{ anthropic_models | tojson }},
     ollama: {{ ollama_models | tojson }}
     };
     // Server-pinned default provider/model (used only when the browser has no

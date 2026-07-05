@@ -156,6 +156,7 @@ export function scanToStages(data, useInbound, useOutbound) {
   let provider = "OpenAI";
   if (data.model_provider === "azure") provider = "Azure";
   else if (data.model_provider === "gemini") provider = "Gemini";
+  else if (data.model_provider === "anthropic") provider = "Claude";
   else if (data.model_provider === "ollama") provider = "Ollama";
 
   const st = (status) => status;
@@ -204,7 +205,7 @@ export function renderScanPipeline(data, useInbound, useOutbound, onNodeClick) {
 
 // Indeterminate "scanning…" pipeline shown while /api/analyze is in flight.
 export function renderScanningPipeline({ useInbound, useOutbound, provider, model }) {
-  const prov = provider === "azure" ? "Azure" : provider === "gemini" ? "Gemini" : provider === "ollama" ? "Ollama" : "OpenAI";
+  const prov = provider === "azure" ? "Azure" : provider === "gemini" ? "Gemini" : provider === "anthropic" ? "Claude" : provider === "ollama" ? "Ollama" : "OpenAI";
   const stages = [
     { id: "user", kind: "user", name: "User", role: "prompt", badge: "sent" },
     { id: "inbound", kind: "guard", name: "Inbound guard", role: "scans the prompt", badge: useInbound ? "scanning…" : "skipped" },

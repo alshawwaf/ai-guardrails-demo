@@ -364,6 +364,18 @@ def load_recent_logs_from_db():
         analysis_logs = []
 
 
+# Anthropic (Claude) models offered as scan targets. Static list — the Messages
+# API has no "list models" call we need here and these change rarely. Most
+# capable first so it's the default selection.
+ANTHROPIC_MODELS = [
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-haiku-4-5",
+    "claude-opus-4-7",
+    "claude-sonnet-4-6",
+]
+
+
 def get_available_models(api_key):
     """Helper function to fetch available OpenAI models with caching"""
     if not api_key:
@@ -598,6 +610,7 @@ def index():
         azure_deployment=azure_deployment,
         gemini_models=gemini_models,
         ollama_models=ollama_models,
+        anthropic_models=ANTHROPIC_MODELS,
         is_azure_openai_configured=is_azure_openai_configured,
         is_azure_content_safety_configured=is_azure_content_safety_configured,
         default_provider=default_provider,
@@ -651,6 +664,7 @@ def playground():
         azure_deployment=azure_deployment,
         gemini_models=gemini_models,
         ollama_models=ollama_models,
+        anthropic_models=ANTHROPIC_MODELS,
         is_azure_openai_configured=is_azure_openai_configured,
         is_azure_content_safety_configured=is_azure_content_safety_configured,
         default_provider=default_provider,
@@ -700,6 +714,7 @@ def settings():
         azure_openai_endpoint = request.form.get("azure_openai_endpoint")
         azure_openai_deployment = request.form.get("azure_openai_deployment")
         gemini_api_key = request.form.get("gemini_api_key")
+        anthropic_api_key = request.form.get("anthropic_api_key")
         ollama_api_url = request.form.get("ollama_api_url")
         ollama_timeout = request.form.get("ollama_timeout")
         azure_cs_endpoint = request.form.get("azure_cs_endpoint")
@@ -712,6 +727,7 @@ def settings():
         set_setting("AZURE_OPENAI_ENDPOINT", azure_openai_endpoint)
         set_setting("AZURE_OPENAI_DEPLOYMENT", azure_openai_deployment)
         set_setting("GEMINI_API_KEY", gemini_api_key)
+        set_setting("ANTHROPIC_API_KEY", anthropic_api_key)
         set_setting("OLLAMA_API_URL", ollama_api_url)
         set_setting("OLLAMA_TIMEOUT", ollama_timeout)
         set_setting("AZURE_CONTENT_SAFETY_ENDPOINT", azure_cs_endpoint)
@@ -731,6 +747,7 @@ def settings():
             azure_openai_endpoint=azure_openai_endpoint,
             azure_openai_deployment=azure_openai_deployment,
             gemini_api_key=gemini_api_key,
+            anthropic_api_key=anthropic_api_key,
             ollama_api_url=ollama_api_url,
             ollama_timeout=ollama_timeout,
             azure_cs_endpoint=azure_cs_endpoint,
@@ -752,6 +769,9 @@ def settings():
         "AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini-2024-07-18"
     )
     gemini_api_key = get_setting("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", "")
+    anthropic_api_key = get_setting("ANTHROPIC_API_KEY") or os.getenv(
+        "ANTHROPIC_API_KEY", ""
+    )
     ollama_api_url = get_setting("OLLAMA_API_URL") or os.getenv(
         "OLLAMA_API_URL", "http://localhost:11434"
     )
@@ -775,6 +795,7 @@ def settings():
         azure_openai_endpoint=azure_openai_endpoint,
         azure_openai_deployment=azure_openai_deployment,
         gemini_api_key=gemini_api_key,
+        anthropic_api_key=anthropic_api_key,
         ollama_api_url=ollama_api_url,
         ollama_timeout=ollama_timeout,
         azure_cs_endpoint=azure_cs_endpoint,
@@ -1720,6 +1741,46 @@ def analyze():
             except Exception as e:
                 logging.error(f"Ollama API Error: {e}")
                 openai_response = f"Error calling Ollama: {str(e)}"
+
+        elif model_provider == "anthropic":
+            anthropic_api_key = get_setting("ANTHROPIC_API_KEY") or os.getenv(
+                "ANTHROPIC_API_KEY"
+            )
+            if anthropic_api_key:
+                try:
+                    # Anthropic Messages API — raw REST, same pattern as the
+                    # Azure/Ollama branches (no SDK dependency). x-api-key +
+                    # anthropic-version headers; max_tokens is required.
+                    an_response = requests.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={
+                            "x-api-key": anthropic_api_key,
+                            "anthropic-version": "2023-06-01",
+                            "content-type": "application/json",
+                        },
+                        json={
+                            "model": model_name or "claude-opus-4-8",
+                            "max_tokens": 1024,
+                            "messages": [{"role": "user", "content": prompt}],
+                        },
+                        timeout=60,
+                    )
+                    an_response.raise_for_status()
+                    an_data = an_response.json()
+                    # content is a list of blocks; take the first text block.
+                    openai_response = next(
+                        (
+                            b.get("text", "")
+                            for b in an_data.get("content", [])
+                            if b.get("type") == "text"
+                        ),
+                        "",
+                    )
+                except Exception as e:
+                    logging.error(f"Anthropic API Error: {e}")
+                    openai_response = f"Error calling Anthropic: {str(e)}"
+            else:
+                openai_response = "Anthropic API key not configured."
 
         else:  # Default to OpenAI
             openai_api_key = get_setting("OPENAI_API_KEY") or os.getenv(
