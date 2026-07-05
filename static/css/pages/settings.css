@@ -157,8 +157,8 @@
 .input-field {
   width: 100%;
   padding: 0.875rem 1.1rem;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 0.85rem;
   color: var(--text-primary);
   font-family: var(--font-body);
@@ -166,11 +166,16 @@
   transition: all 0.2s ease;
 }
 
+.input-field::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
 .input-field:focus {
   outline: none;
   border-color: var(--accent-color);
-  background: rgba(0, 0, 0, 0.4);
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  background: var(--bg-secondary);
+  box-shadow: 0 0 0 4px var(--glow-color);
 }
 
 .input-help {
