@@ -6,7 +6,7 @@
     <div class="input-panel">
         <div class="panel-header">
             <h3>Chat Playground</h3>
-            <p>Enter any prompt to chat with OpenAI</p>
+            <p id="playground-subtitle">Enter any prompt, then scan it with Lakera Guard</p>
         </div>
 
         <div class="input-wrapper">
@@ -175,5 +175,9 @@
     gemini: {{ gemini_models | tojson }},
     ollama: {{ ollama_models | tojson }}
     };
+    // Server-pinned default provider/model (used only when the browser has no
+    // saved preference). Configurable via DEFAULT_LLM_PROVIDER / DEFAULT_LLM_MODEL.
+    window.defaultProvider = {{ default_provider | tojson }};
+    window.defaultModel = {{ default_model | tojson }};
 </script>
 {% endblock %}

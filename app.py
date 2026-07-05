@@ -552,6 +552,17 @@ def index():
     gemini_models = get_gemini_models()
     ollama_models = get_ollama_models()
 
+    # Server-side default provider/model used when the browser has no saved
+    # preference. Lets a deployment pin, e.g., Ollama + an uncensored local
+    # model so the playground works out of the box (a browser localStorage
+    # choice still wins). See DEFAULT_LLM_PROVIDER / DEFAULT_LLM_MODEL.
+    default_provider = get_setting("DEFAULT_LLM_PROVIDER") or os.getenv(
+        "DEFAULT_LLM_PROVIDER", "ollama"
+    )
+    default_model = get_setting("DEFAULT_LLM_MODEL") or os.getenv(
+        "DEFAULT_LLM_MODEL", "richardyoung/mythos-9b-unhinged-abliterated:latest"
+    )
+
     return render_template(
         "playground.html",
         available_models=available_models,
@@ -560,6 +571,8 @@ def index():
         ollama_models=ollama_models,
         is_azure_openai_configured=is_azure_openai_configured,
         is_azure_content_safety_configured=is_azure_content_safety_configured,
+        default_provider=default_provider,
+        default_model=default_model,
     )
 
 
@@ -592,6 +605,17 @@ def playground():
     gemini_models = get_gemini_models()
     ollama_models = get_ollama_models()
 
+    # Server-side default provider/model used when the browser has no saved
+    # preference. Lets a deployment pin, e.g., Ollama + an uncensored local
+    # model so the playground works out of the box (a browser localStorage
+    # choice still wins). See DEFAULT_LLM_PROVIDER / DEFAULT_LLM_MODEL.
+    default_provider = get_setting("DEFAULT_LLM_PROVIDER") or os.getenv(
+        "DEFAULT_LLM_PROVIDER", "ollama"
+    )
+    default_model = get_setting("DEFAULT_LLM_MODEL") or os.getenv(
+        "DEFAULT_LLM_MODEL", "richardyoung/mythos-9b-unhinged-abliterated:latest"
+    )
+
     return render_template(
         "playground.html",
         available_models=available_models,
@@ -600,6 +624,8 @@ def playground():
         ollama_models=ollama_models,
         is_azure_openai_configured=is_azure_openai_configured,
         is_azure_content_safety_configured=is_azure_content_safety_configured,
+        default_provider=default_provider,
+        default_model=default_model,
     )
 
 

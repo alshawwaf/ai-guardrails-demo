@@ -198,8 +198,16 @@ export function initPlayground() {
                 updateSelection(savedModel);
             }
         } else {
-            providerSelect.value = "azure";
+            // No saved preference — fall back to the server-pinned default
+            // (window.defaultProvider / window.defaultModel), else Azure.
+            const dp = window.defaultProvider || "azure";
+            providerSelect.value = dp;
             populateModels();
+            const dm = window.defaultModel;
+            const avail = window.llmData[dp];
+            if (dm && dp !== 'azure' && Array.isArray(avail) && avail.includes(dm)) {
+                updateSelection(dm);
+            }
         }
     }
 

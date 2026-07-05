@@ -37,6 +37,10 @@ services:
       - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-300}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-richardyoung/mythos-9b-unhinged-abliterated:latest}
 
+      # Playground default LLM (used when the browser has no saved choice)
+      - DEFAULT_LLM_PROVIDER=${DEFAULT_LLM_PROVIDER:-ollama}
+      - DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL:-richardyoung/mythos-9b-unhinged-abliterated:latest}
+
       # CORS
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
 
