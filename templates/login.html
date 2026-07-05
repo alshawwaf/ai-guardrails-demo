@@ -25,7 +25,7 @@
                 <input type="password" id="password" name="password" required placeholder="••••••••" class="form-control">
             </div>
             
-            <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+            <button type="submit" class="btn-gradient btn-block">Sign In</button>
         </form>
     </div>
 </div>
@@ -45,17 +45,20 @@
         padding: 2.5rem;
         border-radius: 16px;
         backdrop-filter: blur(12px);
-        background: rgba(17, 25, 40, 0.75);
-        border: 1px solid rgba(255, 255, 255, 0.125);
+        -webkit-backdrop-filter: blur(12px);
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 24px 48px -26px var(--glow-color);
     }
-    
+
     .login-title {
         text-align: center;
         margin-bottom: 0.5rem;
         font-family: 'Unbounded', sans-serif;
         font-size: 1.5rem;
-        background: linear-gradient(to right, #60a5fa, #a78bfa);
+        background: var(--brand-gradient);
         -webkit-background-clip: text;
+        background-clip: text;
         -webkit-text-fill-color: transparent;
     }
     
@@ -80,20 +83,20 @@
     .form-control {
         width: 100%;
         padding: 0.75rem 1rem;
-        background: rgba(0, 0, 0, 0.2);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
         border-radius: 8px;
         color: var(--text-primary);
         font-family: inherit;
         transition: all 0.2s;
         /* Fix for box-sizing causing overflow */
-        box-sizing: border-box; 
+        box-sizing: border-box;
     }
-    
+
     .form-control:focus {
         outline: none;
-        border-color: #60a5fa;
-        background: rgba(0, 0, 0, 0.3);
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px var(--glow-color);
     }
     
     .btn-block {
