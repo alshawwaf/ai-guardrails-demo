@@ -7,6 +7,10 @@ services:
     build: .
     ports:
       - "${APP_PORT:-9000}:${APP_PORT:-9000}"
+    # Lets the default OLLAMA_API_URL (host.docker.internal) reach an Ollama
+    # running on the host, on Linux as well as Docker Desktop.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       # Application
       - APP_PORT=${APP_PORT:-9000}
@@ -26,6 +30,12 @@ services:
       - GEMINI_API_KEY
       - AZURE_CONTENT_SAFETY_KEY
       - AZURE_CONTENT_SAFETY_ENDPOINT
+
+      # Ollama (local LLM). Point OLLAMA_API_URL at your Ollama host. The
+      # recommended target model is uncensored on purpose (see .env.example).
+      - OLLAMA_API_URL=${OLLAMA_API_URL:-http://host.docker.internal:11434}
+      - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-300}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-richardyoung/mythos-9b-unhinged-abliterated:latest}
 
       # CORS
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
