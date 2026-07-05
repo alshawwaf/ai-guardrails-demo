@@ -135,6 +135,13 @@
 .gp-vd { color: var(--text-secondary); font-size: 0.9rem; margin: 0; line-height: 1.5; }
 .gp-vd b { color: var(--text-primary); font-weight: 700; }
 
+/* Indeterminate "scanning…" state */
+@keyframes gp-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); } 50% { box-shadow: 0 0 0 7px rgba(124, 58, 237, 0.18); } }
+@keyframes gp-fade { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.gp-scanning .gp-chip.brand { animation: gp-pulse 1.2s ease-in-out infinite; }
+.gp-scanning .gp-link .gp-fill { opacity: 0.5; }
+.gp-scanning .gp-badge.wait { animation: gp-fade 1.2s ease-in-out infinite; }
+
 @media (max-width: 720px) {
   .gp-pipe { grid-template-columns: 1fr; gap: 0.5rem; }
   .gp-link { display: none; }

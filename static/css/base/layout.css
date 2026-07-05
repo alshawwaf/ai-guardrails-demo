@@ -164,6 +164,9 @@
   background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%) !important;
   border-color: #c084fc;
   box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+  /* White text/icons on the violet pill — the base color:var(--text-primary)
+     would otherwise render black-on-violet (unreadable). */
+  color: #ffffff !important;
 }
 
 /* Dropdown Menu */

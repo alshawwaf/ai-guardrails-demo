@@ -3,7 +3,7 @@
 // ============================================
 
 import { setLoading, showNotification } from '../shared/utils.js';
-import { displayResults } from '../shared/traffic-flow.js';
+import { displayResults, showScanning } from '../shared/traffic-flow.js';
 import { initHeroPipeline } from '../shared/pipeline.js';
 
 /**
@@ -312,13 +312,20 @@ export function initPlayground() {
 
             if (!prompt) return;
 
+            const modelProvider = providerSelect ? providerSelect.value : 'openai';
+            const modelName = modelSelect ? modelSelect.value : '';
+
             setLoading(true, analyzeBtn);
+            // Open the progress modal immediately so the scan shows staged
+            // progress (inbound → LLM → outbound) instead of a bare spinner.
+            showScanning({
+                useInbound: useGuardrails,
+                useOutbound: useGuardrailsOutbound,
+                provider: modelProvider,
+                model: modelName,
+            });
 
             try {
-                // Standard scan logic
-                const modelProvider = providerSelect ? providerSelect.value : 'openai';
-                const modelName = modelSelect ? modelSelect.value : '';
-
                 const response = await fetch("/api/analyze", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -345,6 +352,8 @@ export function initPlayground() {
                     showNotification(data.openai_response, 'warning');
                 }
             } catch (error) {
+                const m = document.getElementById("result-modal");
+                if (m) m.classList.add("hidden");
                 showNotification(error.message, 'error');
             } finally {
                 setLoading(false, analyzeBtn);
@@ -431,7 +440,8 @@ export function initPlayground() {
                     if (promptInput) {
                         promptInput.value = trigger.prompt;
                         promptInput.dispatchEvent(new Event('input'));
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        // Focus the prompt without yanking the page to the top.
+                        promptInput.focus({ preventScroll: true });
                     }
                 });
 

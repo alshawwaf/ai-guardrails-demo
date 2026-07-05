@@ -201,3 +201,24 @@ export function renderScanPipeline(data, useInbound, useOutbound, onNodeClick) {
   }
   return gp;
 }
+
+// Indeterminate "scanning…" pipeline shown while /api/analyze is in flight.
+export function renderScanningPipeline({ useInbound, useOutbound, provider, model }) {
+  const prov = provider === "azure" ? "Azure" : provider === "gemini" ? "Gemini" : provider === "ollama" ? "Ollama" : "OpenAI";
+  const stages = [
+    { id: "user", kind: "user", name: "User", role: "prompt", badge: "sent" },
+    { id: "inbound", kind: "guard", name: "Inbound guard", role: "scans the prompt", badge: useInbound ? "scanning…" : "skipped" },
+    { id: "llm", kind: "llm", name: prov, role: model || "model", badge: "waiting" },
+    { id: "outbound", kind: "guard", name: "Outbound guard", role: "scans the reply", badge: useOutbound ? "scanning…" : "skipped" },
+    { id: "deliver", kind: "user", name: "User", role: "receives reply", badge: "waiting" },
+  ];
+  const gp = document.createElement("div");
+  gp.className = "gp gp-scanning";
+  gp.appendChild(buildPipe(stages));
+  stages.forEach((s) => {
+    const b = gp.querySelector('[data-b="' + s.id + '"]');
+    if (b) { b.className = "gp-badge wait"; b.textContent = s.badge; }
+  });
+  gp.querySelectorAll(".gp-link .gp-fill").forEach((f) => (f.style.width = "60%"));
+  return gp;
+}

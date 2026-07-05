@@ -3,7 +3,34 @@
 // ============================================
 
 import { getAttackColor } from "./utils.js";
-import { renderScanPipeline } from "./pipeline.js";
+import { renderScanPipeline, renderScanningPipeline } from "./pipeline.js";
+
+/**
+ * Open the result modal in a "scanning…" progress state while /api/analyze
+ * runs. displayResults() replaces this content when the response arrives.
+ */
+export function showScanning({ useInbound, useOutbound, provider, model }) {
+  const modal = document.getElementById("result-modal");
+  if (!modal) return;
+  const modalHeader = modal.querySelector(".modal-header");
+  const flagsContainer = document.getElementById("flags-container");
+  const statsContainer = document.getElementById("result-stats");
+  if (flagsContainer) flagsContainer.innerHTML = "";
+  if (statsContainer) statsContainer.innerHTML = "";
+  modalHeader.className = "modal-header compact-header neutral";
+  modalHeader.innerHTML =
+    '<div class="compact-header-left">' +
+    '<span class="compact-status-badge" style="--status-color: #7c3aed">' +
+    '<span class="status-icon">⏳</span><span class="status-text">Scanning…</span></span></div>' +
+    '<button class="close-modal-btn" id="close-result-modal">&times;</button>';
+  const card = document.createElement("div");
+  card.className = "modal-card compact-flow-card";
+  card.appendChild(renderScanningPipeline({ useInbound, useOutbound, provider, model }));
+  flagsContainer.appendChild(card);
+  const closeBtn = document.getElementById("close-result-modal");
+  if (closeBtn) closeBtn.addEventListener("click", () => modal.classList.add("hidden"));
+  modal.classList.remove("hidden");
+}
 
 /**
  * Display analysis results in modal

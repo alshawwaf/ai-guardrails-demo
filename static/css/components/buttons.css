@@ -143,3 +143,14 @@ button:hover {
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
   filter: brightness(1.1);
 }
+
+/* Loading/disabled: keep the gradient (dimmed) so the icon + spinner stay
+   visible, instead of the browser graying the button out. */
+#export-pdf:disabled,
+.btn-gradient:disabled {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  opacity: 0.72;
+  cursor: wait;
+  transform: none;
+  filter: none;
+}
