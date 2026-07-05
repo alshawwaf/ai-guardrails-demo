@@ -12,6 +12,7 @@
 @import url('components/tables.css');
 @import url('components/loaders.css');
 @import url('components/traffic-flow.css');
+@import url('components/pipeline.css');
 @import url('components/notifications.css');
 
 /* Pages */
@@ -19,3 +20,6 @@
 @import url('pages/dashboard.css');
 @import url('pages/logs.css');
 @import url('pages/settings.css');
+
+/* Light-theme overhaul — loaded last so it overrides component styles */
+@import url('theme-light.css');

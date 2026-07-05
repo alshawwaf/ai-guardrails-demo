@@ -35,22 +35,22 @@
 }
 
 [data-theme="light"] {
-  --bg-color: #f8fafc;
+  --bg-color: #f6f6fc;
   --bg-secondary: #ffffff;
-  --card-bg: rgba(255, 255, 255, 0.9);
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --accent-color: #2563eb;
-  --accent-hover: #1d4ed8;
-  --danger-color: #dc2626;
+  --card-bg: rgba(255, 255, 255, 0.82);
+  --text-primary: #16123a;
+  --text-secondary: #5b6072;
+  /* Brand-aligned accent (was generic blue) */
+  --accent-color: #7c3aed;
+  --accent-hover: #6d28d9;
+  --danger-color: #e11d48;
   --success-color: #16a34a;
-  --border-color: rgba(0, 0, 0, 0.1);
-  --glow-color: rgba(37, 99, 235, 0.3);
-  --header-bg: rgba(255, 255, 255, 0.8);
-  --nav-link-bg: rgba(241, 245, 249, 0.8);
-  --nav-link-hover: rgba(0, 0, 0, 0.05);
+  --border-color: rgba(124, 58, 237, 0.12);
+  --glow-color: rgba(124, 58, 237, 0.28);
+  --header-bg: rgba(255, 255, 255, 0.72);
+  --nav-link-bg: rgba(255, 255, 255, 0.6);
+  --nav-link-hover: rgba(124, 58, 237, 0.08);
   --dropdown-bg: #ffffff;
 
-  /* Light mode brand gradients - slightly more punchy */
-  --brand-gradient: linear-gradient(135deg, #4f46e5 0%, #9333ea 50%, #db2777 100%);
+  --brand-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 48%, #ec4899 100%);
 }

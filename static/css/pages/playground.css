@@ -1,11 +1,22 @@
+/* Guard pipeline hero */
+.pipeline-hero {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  padding: 1.5rem 1.75rem 1.75rem;
+  margin-bottom: 1.5rem;
+}
+.pipeline-hero-head h2 { margin: 0 0 0.25rem; }
+.pipeline-hero-head p { margin: 0 0 1.3rem; color: var(--text-secondary); font-size: 0.92rem; }
+
 /* Playground Split Screen */
 .playground-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
-  height: calc(100vh - 280px);
-  max-height: 900px;
-  min-height: 650px;
+  height: calc(100vh - 460px);
+  max-height: 760px;
+  min-height: 520px;
 }
 
 .input-panel,

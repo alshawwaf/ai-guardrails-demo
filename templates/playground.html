@@ -1,5 +1,14 @@
 {% extends "base.html" %} {% block content %}
 
+<section class="pipeline-hero" aria-label="How Lakera Guard inspects a request">
+    <div class="pipeline-hero-head">
+        <div>
+            <h2>How Guard sees a request</h2>
+            <p>Guard scans the prompt on the way in and the model's reply on the way out. Pick a scenario to watch it.</p>
+        </div>
+    </div>
+    <div id="guard-pipeline"></div>
+</section>
 
 <div class="playground-container">
     <!-- Left Panel: Free-form Input -->

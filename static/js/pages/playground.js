@@ -4,11 +4,15 @@
 
 import { setLoading, showNotification } from '../shared/utils.js';
 import { displayResults } from '../shared/traffic-flow.js';
+import { initHeroPipeline } from '../shared/pipeline.js';
 
 /**
  * Initialize playground page
  */
 export function initPlayground() {
+    // Interactive "how Guard works" pipeline at the top of the page.
+    initHeroPipeline(document.getElementById("guard-pipeline"));
+
     const promptInput = document.getElementById("prompt");
     const analyzeBtn = document.getElementById("analyze-btn");
     const resultsSection = document.getElementById("results-section");

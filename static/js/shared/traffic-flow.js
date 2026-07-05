@@ -3,6 +3,7 @@
 // ============================================
 
 import { getAttackColor } from "./utils.js";
+import { renderScanPipeline } from "./pipeline.js";
 
 /**
  * Display analysis results in modal
@@ -194,6 +195,7 @@ export function displayResults(data) {
     ).checked;
 
     const flowDiagram = renderTrafficFlow(data, useLakera, useLakeraOutbound);
+    flowDiagram.classList.add("modal-pipeline");
     flowCard.appendChild(flowDiagram);
     flagsContainer.appendChild(flowCard);
 
@@ -309,193 +311,11 @@ function createAttackCard(vector) {
  * @returns {HTMLElement} Traffic flow container
  */
 function renderTrafficFlow(data, useLakera, useLakeraOutbound) {
-  const container = document.createElement("div");
-  container.className = "traffic-flow-container";
-
-  const inboundBlocked = data.lakera_result && data.lakera_result.flagged;
-  const outboundBlocked =
-    data.lakera_outbound_result && data.lakera_outbound_result.flagged;
-
-  const userStatus = "active";
-
-  let inboundStatus = "skipped";
-  if (useLakera) {
-    inboundStatus = inboundBlocked ? "danger" : "success";
-  } else {
-    inboundStatus = "neutral";
-  }
-
-  let openaiStatus = "skipped";
-  if (!inboundBlocked) {
-    openaiStatus = data.openai_response ? "active" : "skipped";
-  }
-
-  let outboundStatus = "skipped";
-  if (useLakeraOutbound && openaiStatus === "active") {
-    outboundStatus = outboundBlocked ? "danger" : "success";
-  } else if (!useLakeraOutbound && openaiStatus === "active") {
-    outboundStatus = "neutral";
-  }
-
-  const userIcon = "👤";
-  const lakeraIcon = `<svg viewBox="0 0 24 24" width="28" height="28" fill="#3B82F6"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18l7 3.12v4.7c0 4.67-3.13 8.94-7 10.06-3.87-1.12-7-5.39-7-10.06v-4.7l7-3.12z"/></svg>`;
-  const openaiIcon = `<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-        <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08-4.778 2.758a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
-    </svg>`;
-
-  const azureIcon = `<img src="/static/azure-openai.png" alt="Azure" style="width: 28px; height: 28px; object-fit: contain;">`;
-  const geminiIcon = `<img src="/static/gemini-logo.png" alt="Gemini" style="width: 28px; height: 28px; object-fit: contain;">`;
-  const ollamaIcon = `<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h2v2H6zm4-4h8v2h-8zm0 4h5v2h-5z"/></svg>`;
-
-  let llmIcon = openaiIcon;
-  let llmLabel = "OpenAI";
-
-  if (data.model_provider === "azure") {
-    llmIcon = azureIcon;
-    llmLabel = `Azure OpenAI (${data.model_name})`;
-  } else if (data.model_provider === "gemini") {
-    llmIcon = geminiIcon;
-    llmLabel = `Google Gemini (${data.model_name})`;
-  } else if (data.model_provider === "ollama") {
-    llmIcon = ollamaIcon;
-    llmLabel = `Ollama (${data.model_name})`;
-  } else {
-    llmLabel = `OpenAI (${data.model_name || "gpt-4o-mini"})`;
-  }
-
-  const createStep = (id, icon, label, status) => `
-        <div class="flow-step ${status}" data-step="${id}">
-            <div class="flow-icon">${icon}</div>
-            <div class="flow-label">${label}</div>
-        </div>
-    `;
-
-  const createArrow = (status) => `
-        <div class="flow-arrow ${status}"></div>
-    `;
-
-  let html = "";
-
-  html += createStep("user", userIcon, "User", userStatus);
-
-  // Arrow 1: User -> Inbound
-  let arrow1Status =
-    inboundStatus === "danger" || outboundStatus === "danger"
-      ? "danger"
-      : "active";
-  html += createArrow(arrow1Status);
-
-  html += createStep("inbound", lakeraIcon, "Demo Inbound", inboundStatus);
-
-  // Arrow 2: Inbound -> LLM
-  let arrow2Status = "";
-  if (outboundStatus === "danger") {
-    arrow2Status = "danger";
-  } else if (!inboundBlocked && openaiStatus === "active") {
-    arrow2Status = "active";
-  }
-  html += createArrow(arrow2Status);
-
-  html += createStep("llm", llmIcon, llmLabel, openaiStatus);
-
-  // Arrow 3: LLM -> Outbound (or User Response if outbound disabled)
-  let arrow3Status = "";
-  if (useLakeraOutbound && openaiStatus === "active") {
-    arrow3Status = outboundStatus === "danger" ? "danger" : "active";
-  } else if (!useLakeraOutbound && openaiStatus === "active") {
-    arrow3Status = "active";
-  }
-  html += createArrow(arrow3Status);
-
-  // Only show outbound step if outbound scanning is enabled
-  if (useLakeraOutbound) {
-    html += createStep(
-      "outbound",
-      lakeraIcon,
-      "Demo Outbound",
-      outboundStatus
-    );
-
-    // Arrow 4: Outbound -> User Response
-    let arrow4Status = "";
-    if (outboundStatus === "success") {
-      arrow4Status = "active";
-    }
-    html += createArrow(arrow4Status);
-  }
-
-  // Final step: User receives response
-  const userResponseIcon = "👤";
-  let userResponseStatus = "skipped";
-
-  if (openaiStatus === "active" && !inboundBlocked && !outboundBlocked) {
-    userResponseStatus = "success";
-  }
-
-  html += createStep(
-    "user-response",
-    userResponseIcon,
-    "User Response",
-    userResponseStatus
+  // Modernized: delegates to the shared pipeline renderer (components/
+  // pipeline.css). Node clicks still open the JSON detail pane below.
+  return renderScanPipeline(data, useLakera, useLakeraOutbound, (id) =>
+    showStepDetails(id, data)
   );
-
-  container.innerHTML = html;
-
-  const steps = container.querySelectorAll(".flow-step");
-  steps.forEach((step) => {
-    const stepStatus =
-      step.classList.contains("skipped") || step.classList.contains("neutral");
-
-    // Only add click handler to active steps
-    if (!stepStatus) {
-      step.style.cursor = "pointer";
-      step.addEventListener("click", () => {
-        const isAlreadySelected = step.classList.contains("selected");
-
-        steps.forEach((s) => s.classList.remove("selected"));
-        const pane = document.getElementById("flow-details-pane");
-
-        if (isAlreadySelected) {
-          if (pane) pane.classList.add("hidden");
-
-          const allChildren = Array.from(container.children);
-          allChildren.forEach((child) => {
-            if (child.classList.contains("flow-arrow")) {
-              child.classList.remove("path-selected");
-            }
-          });
-        } else {
-          step.classList.add("selected");
-
-          const stepId = step.getAttribute("data-step");
-          if (!data.prompt && document.getElementById("prompt")) {
-            data.prompt = document.getElementById("prompt").value;
-          }
-
-          const allChildren = Array.from(container.children);
-          const stepIndex = allChildren.indexOf(step);
-
-          allChildren.forEach((child, index) => {
-            if (child.classList.contains("flow-arrow")) {
-              if (index < stepIndex) {
-                child.classList.add("path-selected");
-              } else {
-                child.classList.remove("path-selected");
-              }
-            }
-          });
-
-          showStepDetails(stepId, data);
-        }
-      });
-    } else {
-      // Make skipped/neutral steps visually non-interactive
-      step.style.cursor = "not-allowed";
-      step.style.opacity = "0.6";
-    }
-  });
-
-  return container;
 }
 
 /**

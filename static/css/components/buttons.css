@@ -135,6 +135,10 @@ button:hover {
 
 #export-pdf:hover,
 .btn-gradient:hover {
+  /* Keep the gradient on hover — the generic `button:hover` rule (which sets a
+     translucent white background) has higher specificity and would otherwise
+     wipe it out, leaving a white box with invisible white text. */
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
   filter: brightness(1.1);
