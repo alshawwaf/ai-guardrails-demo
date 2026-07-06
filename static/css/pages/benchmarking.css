@@ -2594,7 +2594,11 @@
 .quick-btn:hover { border-color: rgba(124,58,237,.4); color: #6d28d9; }
 .quick-btn.safe:hover { border-color: rgba(34,197,94,.5); color: var(--success-color); }
 .benchmark-btn { width: 100%; padding: .95rem; border: none; border-radius: 14px; font-size: 1rem; font-weight: 700; color: #fff; background: var(--brand-gradient); cursor: pointer; box-shadow: 0 12px 26px -12px rgba(168,85,247,.6); display: flex; align-items: center; justify-content: center; gap: .5rem; }
-.benchmark-btn:hover { filter: brightness(1.05); }
+/* Re-assert the gradient + white text on hover — the generic button:hover
+   (translucent white bg) has higher specificity than the base .benchmark-btn
+   and would otherwise leave a white box with invisible white text. */
+.benchmark-btn:hover { background: var(--brand-gradient); color: #fff; filter: brightness(1.05); }
+.benchmark-btn .btn-content { display: inline-flex; align-items: center; gap: .5rem; color: #fff; }
 .benchmark-btn .btn-icon { width: 18px; height: 18px; }
 .benchmark-btn .btn-icon polygon { fill: #fff; }
 .benchmark-btn:disabled { opacity: .72; cursor: wait; }

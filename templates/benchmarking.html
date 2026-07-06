@@ -130,43 +130,14 @@
                     </div>
                 </button>
 
-                <div class="navigation-hints" style="display: flex; justify-content: center; gap: 2rem; margin-top: 1.5rem;">
-                    <button id="view-all-history" class="secondary-btn" style="background: transparent; border: none; font-size: 0.8rem; text-decoration: underline; cursor: pointer;">
+                <div class="navigation-hints" style="display: flex; justify-content: center; margin-top: 1.5rem;">
+                    <a href="{{ url_for('logs') }}" class="secondary-btn" style="background: transparent; border: none; font-size: 0.85rem; text-decoration: underline; cursor: pointer;">
                         View Scans History
-                    </button>
-                    <button id="scroll-to-latest" class="secondary-btn hidden" style="background: transparent; border: none; font-size: 0.8rem; text-decoration: underline; cursor: pointer;">
-                        Jump to Latest Result
-                    </button>
+                    </a>
                 </div>
             </div>
 
-
-            <div id="results-section" class="results-section">
-                <div class="results-header">
-                    <h2>Benchmark History</h2>
-                    <div class="results-actions">
-                        <button id="clear-history-btn" class="secondary-btn">Clear History</button>
-                    </div>
-                </div>
-
-                <div class="history-table-container">
-                    <table class="benchmark-table" id="benchmark-table">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Prompt</th>
-                                <th>AI Guardrails</th>
-                                <th>Azure AI</th>
-                                <th>LLM Guard</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="benchmark-table-body">
-                            <!-- Rows injected via JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <!-- Benchmark History table removed — runs are viewable on the Logs page. -->
 
             <!-- Detail Modal -->
             <div id="result-detail-modal" class="progress-modal hidden">

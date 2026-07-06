@@ -146,3 +146,37 @@
     justify-content: center;
   }
 }
+
+/* ============================================================================
+   Log Details modal — organized: labeled cards + wrapping, scrolling code blocks
+   (the raw <pre> previously overflowed horizontally and clipped long prompts).
+   ============================================================================ */
+#log-modal .modal-content { max-width: 780px; width: 92%; }
+#log-modal .modal-body { max-height: 72vh; overflow-y: auto; display: flex; flex-direction: column; gap: 1.1rem; }
+#log-modal .log-section { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 14px; padding: 0.9rem 1rem 1rem; }
+#log-modal .log-section h4 {
+  margin: 0 0 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  /* Override any global gradient-text h4 so this reads as a plain label. */
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+#log-modal .log-section pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--text-primary);
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  max-height: 46vh;
+  overflow: auto;
+}

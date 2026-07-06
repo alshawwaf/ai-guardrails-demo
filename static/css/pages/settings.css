@@ -1,5 +1,5 @@
 /* Settings Page Container */
-.dashboard-wrapper {
+.settings-page {
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem;
@@ -200,7 +200,7 @@
     grid-template-columns: 1fr;
   }
 
-  .dashboard-wrapper {
+  .settings-page {
     padding: 1rem;
   }
 }
@@ -208,7 +208,7 @@
    Settings overhaul — modern brand design (glass cards, gradient hero/hairline,
    icon chips, status pills). Theme-aware; appended last so it refines the base.
    ============================================================================ */
-.dashboard-wrapper { max-width: 1120px; margin: 0 auto; }
+.settings-page { max-width: 1120px; margin: 0 auto; }
 .settings-hero { position: relative; overflow: hidden; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 20px; padding: 1.8rem 2.1rem; margin-bottom: 1.8rem; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 24px 48px -26px rgba(120,70,200,.3); }
 .settings-hero::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--brand-gradient); }
 .settings-hero .hero-badge { display: inline-flex; align-items: center; padding: .35rem .8rem; border-radius: 999px; background: linear-gradient(135deg, rgba(99,102,241,.14), rgba(236,72,153,.14)); border: 1px solid rgba(124,58,237,.25); color: #6d28d9; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }

@@ -15,8 +15,9 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
-  align-items: start;
-  min-height: calc(100vh - 460px);
+  /* Stretch so both panels share the taller one's height and line up. */
+  align-items: stretch;
+  min-height: calc(100vh - 260px);
 }
 
 .input-panel,

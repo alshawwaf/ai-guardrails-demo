@@ -56,15 +56,9 @@ export function initBenchmarking() {
     // Model Manager
     setupModelManager();
 
-    // History
+    // History — hero stats only; the inline table was removed (runs are viewable
+    // on the Logs page). "View Scans History" is now a plain link to /logs.
     fetchHistory();
-    document.getElementById('view-all-history')?.addEventListener('click', () => {
-        resultsSection.scrollIntoView({ behavior: 'smooth' });
-    });
-
-    document.getElementById('scroll-to-latest')?.addEventListener('click', () => {
-        document.getElementById('latest-result-container')?.scrollIntoView({ behavior: 'smooth' });
-    });
 
     // Clear Stats
     setupClearStats();
@@ -555,13 +549,15 @@ async function fetchHistory() {
 }
 
 function renderHistoryTable(history) {
+    // Hero stats update regardless of whether the (removed) table exists.
+    updateHeroStats(history || []);
+
     const tableBody = document.getElementById('benchmark-table-body');
     if (!tableBody) return;
     tableBody.innerHTML = '';
 
     if (!history || history.length === 0) {
         tableBody.innerHTML = '<tr class="no-history-row"><td colspan="6">No benchmark runs recorded yet.</td></tr>';
-        updateHeroStats([]);
         return;
     }
 
@@ -569,8 +565,6 @@ function renderHistoryTable(history) {
     history.forEach(item => {
         addHistoryRow(item);
     });
-
-    updateHeroStats(history);
 }
 
 function updateHeroStats(history) {
