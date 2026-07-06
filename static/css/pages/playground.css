@@ -4,7 +4,8 @@
   border: 1px solid var(--border-color);
   border-radius: 1rem;
   padding: 1.5rem 1.75rem 1.75rem;
-  margin-bottom: 1.5rem;
+  /* Now sits below the playground — gap goes above it. */
+  margin-top: 1.5rem;
 }
 .pipeline-hero-head h2 { margin: 0 0 0.25rem; }
 .pipeline-hero-head p { margin: 0 0 1.3rem; color: var(--text-secondary); font-size: 0.92rem; }
