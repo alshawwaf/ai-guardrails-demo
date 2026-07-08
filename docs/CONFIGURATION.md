@@ -46,8 +46,8 @@ All application settings can be configured via environment variables in the `.en
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| `RATE_LIMIT_DAILY` | Maximum requests per day per IP | `200` | No |
-| `RATE_LIMIT_HOURLY` | Maximum requests per hour per IP | `50` | No |
+| `RATE_LIMIT_DAILY` | Maximum requests per day per IP | `1000000` | No |
+| `RATE_LIMIT_HOURLY` | Maximum requests per hour per IP | `100000` | No |
 | `RATE_LIMIT_STORAGE` | Rate limit storage backend | `memory://` | No |
 
 **Storage Options:**

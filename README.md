@@ -247,8 +247,8 @@ The application supports the following configuration options via `.env`:
 | `LOGS_DIR` | Log file directory | No | `logs` |
 | `LOG_FILENAME` | Log file name | No | `application.log` |
 | `CORS_ORIGINS` | Allowed origins for `/api/*` (comma-separated, or `*`) | No | `*` |
-| `RATE_LIMIT_DAILY` | Requests per day per IP | No | `200` |
-| `RATE_LIMIT_HOURLY` | Requests per hour per IP | No | `50` |
+| `RATE_LIMIT_DAILY` | Requests per day per IP | No | `1000000` |
+| `RATE_LIMIT_HOURLY` | Requests per hour per IP | No | `100000` |
 | `RATE_LIMIT_STORAGE` | Rate-limit backend (`memory://` or `redis://…`) | No | `memory://` |
 | `DEFAULT_ADMIN_EMAIL` | Initial admin login, seeded on first run | No | `admin@example.com` |
 | `DEFAULT_ADMIN_PASSWORD` | Initial admin password, seeded on first run | No | `change_me_please` |

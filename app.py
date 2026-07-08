@@ -98,8 +98,8 @@ CORS(app, resources={r"/api/*": {"origins": cors_origins}})
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 # Configure rate limiting with environment variables
-rate_limit_daily = os.getenv("RATE_LIMIT_DAILY", "200")
-rate_limit_hourly = os.getenv("RATE_LIMIT_HOURLY", "50")
+rate_limit_daily = os.getenv("RATE_LIMIT_DAILY", "1000000")
+rate_limit_hourly = os.getenv("RATE_LIMIT_HOURLY", "100000")
 rate_limit_storage = os.getenv("RATE_LIMIT_STORAGE", "memory://")
 
 limiter = Limiter(

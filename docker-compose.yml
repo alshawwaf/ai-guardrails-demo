@@ -45,8 +45,8 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
 
       # Rate Limiting (using Redis)
-      - RATE_LIMIT_DAILY=${RATE_LIMIT_DAILY:-200}
-      - RATE_LIMIT_HOURLY=${RATE_LIMIT_HOURLY:-50}
+      - RATE_LIMIT_DAILY=${RATE_LIMIT_DAILY:-1000000}
+      - RATE_LIMIT_HOURLY=${RATE_LIMIT_HOURLY:-100000}
       - RATE_LIMIT_STORAGE=redis://redis:6379/0
 
       # Gunicorn

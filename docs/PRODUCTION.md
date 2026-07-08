@@ -86,7 +86,7 @@ The docker compose configuration includes automatic health checks:
 ## Rate Limiting
 
 The application includes rate limiting:
-- **Default**: 200 requests per day, 50 per hour per IP
+- **Default**: 1000000 requests per day, 100000 per hour per IP
 - **Storage**: In-memory (resets on restart)
 
 For production, consider using Redis for persistent rate limiting.
