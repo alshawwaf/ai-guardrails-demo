@@ -254,6 +254,8 @@ The application supports the following configuration options via `.env`:
 | `DEFAULT_ADMIN_PASSWORD` | Initial admin password, seeded on first run | No | `change_me_please` |
 | `FLASK_SECRET_KEY` | Flask session secret (set a random value in production) | No | - |
 
+The rate-limit defaults (`RATE_LIMIT_DAILY` / `RATE_LIMIT_HOURLY`) are intentionally high. When the app is embedded in the dev-hub desktop (iframe), a single session generates many requests and a low limit trips instantly and breaks the demo. To tune them, set the env vars to lower values; if the app is deployed via the ubuntu-dokploy-ai installer, these live in the rendered `.env` for the guardrails/agentic app.
+
 Additional Gunicorn tuning variables (`GUNICORN_WORKERS`, `GUNICORN_TIMEOUT`, `GUNICORN_BIND`) are documented in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ### Runtime Configuration
