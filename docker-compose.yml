@@ -4,7 +4,10 @@
 services:
   # Main application
   web:
-    build: .
+    image: ghcr.io/alshawwaf/ai-guardrails-demo:latest
+    pull_policy: always
+    # build disabled: prebuilt + published by .github/workflows/publish-image.yml; uncomment to build locally.
+    # build: .
     ports:
       - "${APP_PORT:-9000}:${APP_PORT:-9000}"
     # Lets the default OLLAMA_API_URL (host.docker.internal) reach an Ollama
@@ -140,7 +143,10 @@ services:
 
   # Automated backup service
   backup:
-    build: .
+    image: ghcr.io/alshawwaf/ai-guardrails-demo:latest
+    pull_policy: always
+    # build disabled: prebuilt + published by .github/workflows/publish-image.yml; uncomment to build locally.
+    # build: .
     command: >
       sh -c "while true; do
         python scripts/backup_db.py;
