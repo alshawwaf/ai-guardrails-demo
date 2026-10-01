@@ -28,3 +28,17 @@ tmp/
 models_cache/
 data/
 instance/
+
+# Secrets and certificates (TLS private keys, exported CAs, PKCS#12 bundles)
+nginx/ssl/
+*.key
+*.pem
+*.p12
+*.pfx
+.env.*
+!.env.example
+# AI Guard Demo Kit runtime files (logs, state, reports)
+.aiguard/
+
+# Lab CA certificates for the Docker build (certs/README.md explains)
+certs/*.crt

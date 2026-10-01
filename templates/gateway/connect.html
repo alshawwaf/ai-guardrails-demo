@@ -1,0 +1,131 @@
+{% extends "gateway/_layout.html" %}
+{% block gw_main %}
+<header class="gw-hero">
+  <div class="gw-hero-text">
+    <span class="hero-badge">Step {{ gw_step_no }} of {{ gw_step_total }}</span>
+    <h1>Connect to your management server</h1>
+    <p>AI Guard uses the Check Point Management API. It reads first and changes nothing until you approve a plan.</p>
+  </div>
+  <span class="gw-pill" data-gw="conn-pill">Not connected</span>
+</header>
+
+<div class="gw-grid gw-grid-main-side">
+  <section class="gw-card" aria-labelledby="gw-connect-title">
+    <h2 class="gw-h2 gw-sr-only" id="gw-connect-title">Management server</h2>
+    <form id="gw-connect-form" class="gw-form" autocomplete="off" novalidate>
+      <div class="gw-field">
+        <span class="input-label" id="gw-type-label">Server type</span>
+        <div class="gw-seg" role="radiogroup" aria-labelledby="gw-type-label">
+          <button type="button" class="gw-seg-btn active" data-server-type="SMS" role="radio" aria-checked="true">Security Management (SMS)</button>
+          <button type="button" class="gw-seg-btn" data-server-type="MDS" role="radio" aria-checked="false">Multi-Domain (MDS)</button>
+        </div>
+      </div>
+
+      <div class="gw-row">
+        <div class="input-group gw-grow">
+          <label class="input-label" for="gw-server">Address</label>
+          <input id="gw-server" class="input-field gw-mono" placeholder="192.0.2.10 or mgmt.example.com" spellcheck="false" autocomplete="off" maxlength="253">
+        </div>
+        <div class="input-group gw-narrow">
+          <label class="input-label" for="gw-port">Port</label>
+          <input id="gw-port" class="input-field gw-mono" value="443" inputmode="numeric" maxlength="5">
+        </div>
+        <div class="input-group gw-grow" data-gw="domain-group" hidden>
+          <label class="input-label" for="gw-domain">Domain</label>
+          <input id="gw-domain" class="input-field" list="gw-domain-list" placeholder="Pick after connecting, or type it" maxlength="128" autocomplete="off">
+          <datalist id="gw-domain-list"></datalist>
+        </div>
+      </div>
+
+      <fieldset class="gw-fieldset">
+        <legend class="input-label">Sign in with</legend>
+        <div class="gw-inline">
+          <label class="gw-radio"><input type="radio" name="gw-auth" value="api-key" checked> API key</label>
+          <label class="gw-radio"><input type="radio" name="gw-auth" value="password"> Username and password</label>
+        </div>
+      </fieldset>
+
+      <div class="input-group" data-auth="api-key">
+        <label class="input-label" for="gw-api-key">API key</label>
+        <input id="gw-api-key" type="password" class="input-field" autocomplete="off" spellcheck="false" maxlength="512">
+      </div>
+      <div class="gw-row" data-auth="password" hidden>
+        <div class="input-group gw-grow">
+          <label class="input-label" for="gw-user">Username</label>
+          <input id="gw-user" class="input-field" autocomplete="off" spellcheck="false" maxlength="128">
+        </div>
+        <div class="input-group gw-grow">
+          <label class="input-label" for="gw-password">Password</label>
+          <input id="gw-password" type="password" class="input-field" autocomplete="off" maxlength="512">
+        </div>
+      </div>
+      <p class="gw-help">Held in memory for this session only. Never saved, never written to the log. The session closes after {{ gw_idle_minutes }} minutes without activity.</p>
+
+      <details class="gw-details">
+        <summary>Certificate trust</summary>
+        <p class="gw-help">The connection is always verified. If the management certificate is not issued by a public CA, give AI Guard the CA that signed it.</p>
+        <div class="input-group">
+          <label class="input-label" for="gw-ca-pem">Management CA certificate (PEM)</label>
+          <input id="gw-ca-file" type="file" class="gw-file" accept=".pem,.crt,.cer,text/plain" aria-label="Choose a PEM file">
+          <textarea id="gw-ca-pem" class="input-field gw-mono" rows="4" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+          <p class="gw-help">Export the Gaia portal certificate (or the ICA certificate that signed it) as PEM. Stored on this server with owner-only access and deleted when you disconnect.</p>
+          <label class="gw-check" data-gw="ca-clear-row" hidden><input type="checkbox" id="gw-ca-clear"> Forget the CA uploaded earlier</label>
+        </div>
+        <div class="input-group">
+          <label class="input-label" for="gw-server-name">Name in the certificate (optional)</label>
+          <input id="gw-server-name" class="input-field gw-mono" placeholder="mgmt.example.com" spellcheck="false" maxlength="253">
+          <p class="gw-help">Use this when you connect by IP address but the certificate names a host. Compare the fingerprint below with <span class="gw-mono">api fingerprint</span> on the server.</p>
+        </div>
+      </details>
+
+      <details class="gw-details">
+        <summary>Network address translation</summary>
+        <div class="input-group">
+          <label class="input-label" for="gw-local-ip">This server's IP as the gateway sees it (optional)</label>
+          <input id="gw-local-ip" class="input-field gw-mono" placeholder="detected automatically" spellcheck="false" maxlength="45" inputmode="decimal">
+          <p class="gw-help">Set this when the console runs behind NAT or in Docker with bridge networking. The demo rule's scope and the log matching use this address.</p>
+        </div>
+      </details>
+
+      <div class="gw-actions">
+        <button type="submit" class="btn-gradient" id="gw-connect-btn"><span class="btn-text">Connect</span><div class="loader hidden"></div></button>
+        <button type="button" class="secondary-btn" id="gw-disconnect-btn" hidden>Disconnect</button>
+        <span class="gw-result-line" data-gw="connect-result" role="status" aria-live="polite"></span>
+      </div>
+      <div data-gw="connect-warnings"></div>
+      <div data-gw="connect-error"></div>
+    </form>
+  </section>
+
+  <section class="gw-card gw-needs" aria-labelledby="gw-needs-title">
+    <h2 class="gw-h2" id="gw-needs-title">What AI Guard needs</h2>
+    <ul class="gw-checklist">
+      <li><span class="gw-tick ok" aria-hidden="true">✓</span><span>An API user that can edit Threat Prevention policy and install it</span></li>
+      <li><span class="gw-tick ok" aria-hidden="true">✓</span><span>Management API open to this server<span data-gw="needs-ip"></span> (Manage &amp; Settings &gt; Blades &gt; Management API)</span></li>
+      <li><span class="gw-tick ok" aria-hidden="true">✓</span><span>R82.20 management (Management API 2.2) and an R82.20 gateway with HTTPS Inspection</span></li>
+      <li><span class="gw-tick ok" aria-hidden="true">✓</span><span>This server reaches the AI providers through the gateway you pick</span></li>
+      <li><span class="gw-tick ok" aria-hidden="true">✓</span><span>An AI Agent Security Guard API key and project ID (Check Point Portal &gt; AI Security &gt; AI Guardrails)</span></li>
+    </ul>
+    <p class="gw-note">Every call AI Guard makes is listed in the log with its result. Rollback is one click after install.</p>
+  </section>
+</div>
+
+<section class="gw-card" data-gw="gateways-card" hidden aria-labelledby="gw-gateways-title">
+  <div class="gw-card-head">
+    <h2 class="gw-h2" id="gw-gateways-title" data-gw="gateways-title">Gateways</h2>
+    <span class="gw-muted">Pick the gateway your demo traffic goes through</span>
+  </div>
+  <div class="table-container gw-table-wrap">
+    <table class="gw-table">
+      <thead>
+        <tr><th scope="col"><span class="gw-sr-only">Select</span></th><th scope="col">Gateway</th><th scope="col">Address</th><th scope="col">Version</th><th scope="col">Policy package</th><th scope="col">AI Security</th><th scope="col">HTTPS Inspection</th></tr>
+      </thead>
+      <tbody data-gw="gateways-body"></tbody>
+    </table>
+  </div>
+  <div data-gw="gateway-error"></div>
+  <div class="gw-actions gw-actions-end">
+    <button type="button" class="btn-gradient" id="gw-run-preflight" disabled><span class="btn-text">Run preflight</span><div class="loader hidden"></div></button>
+  </div>
+</section>
+{% endblock %}

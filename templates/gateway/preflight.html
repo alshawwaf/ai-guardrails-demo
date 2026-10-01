@@ -1,0 +1,52 @@
+{% extends "gateway/_layout.html" %}
+{% block gw_main %}
+<header class="gw-hero">
+  <div class="gw-hero-text">
+    <span class="hero-badge" data-gw="pf-badge">Step {{ gw_step_no }} of {{ gw_step_total }}</span>
+    <h1>Preflight</h1>
+    <p>Read-only checks of the management server, the gateway and this server's path to the AI providers. Nothing is changed.</p>
+  </div>
+  <div class="gw-counters" data-gw="pf-counters" aria-live="polite"></div>
+</header>
+
+<div data-gw="pf-notice"></div>
+
+<section class="gw-card" data-gw="pf-progress" hidden aria-live="polite">
+  <div class="gw-card-head">
+    <h2 class="gw-h2">Running checks</h2>
+    <span class="gw-muted gw-mono" data-gw="pf-elapsed"></span>
+  </div>
+  <div class="progress-bar-bg"><div class="progress-bar-fill" data-gw="pf-bar" style="width:0%"></div></div>
+  <ol class="gw-steplist" data-gw="pf-steps"></ol>
+</section>
+
+<div data-gw="pf-error"></div>
+<div data-gw="pf-install" aria-live="polite"></div>
+<div data-gw="pf-blocking"></div>
+
+<section class="gw-card gw-approval-card" data-gw="pf-fix" hidden aria-labelledby="gw-pf-fix-title">
+  <div class="gw-card-head">
+    <span class="gw-label warn">Asks for approval</span>
+    <h2 class="gw-h2 gw-grow" id="gw-pf-fix-title">Turn on HTTPS Inspection</h2>
+  </div>
+  <label class="gw-check"><input type="checkbox" id="gw-pf-fix-rule"> Also add an "Inspect" rule for this server at the top of the HTTPS Inspection policy</label>
+  <div data-gw="pf-fix-plan"></div>
+  <div data-gw="pf-fix-approval"></div>
+  <div data-gw="pf-fix-progress"></div>
+  <div data-gw="pf-fix-error"></div>
+</section>
+
+<div data-gw="pf-warnings"></div>
+
+<section class="gw-card" data-gw="pf-passed-card" hidden aria-labelledby="gw-pf-passed-title">
+  <h2 class="gw-h2" id="gw-pf-passed-title">Passed and informational</h2>
+  <div class="gw-checkrows" data-gw="pf-passed"></div>
+</section>
+
+<section class="gw-card gw-footer-card">
+  <span class="gw-grow gw-muted" data-gw="pf-footer-text">Run the checks to continue.</span>
+  <button type="button" class="secondary-btn" id="gw-pf-run"><span class="btn-text">Check again</span><div class="loader hidden"></div></button>
+  <a class="secondary-btn gw-btn-link" id="gw-pf-anyway" href="{{ url_for('gateway.configure') }}" hidden>Continue anyway</a>
+  <a class="btn-gradient gw-btn-link is-disabled" id="gw-pf-continue" href="{{ url_for('gateway.configure') }}" aria-disabled="true">Continue to Configure</a>
+</section>
+{% endblock %}

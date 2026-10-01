@@ -1,0 +1,111 @@
+{% extends "gateway/_layout.html" %}
+{% block gw_main %}
+{#- Note: no element here may use id="prompt" (main.js would load the playground). -#}
+<header class="gw-hero">
+  <div class="gw-hero-text">
+    <span class="hero-badge" data-gw="demo-badge">Step {{ gw_step_no }} of {{ gw_step_total }}</span>
+    <h1 data-gw="demo-title">Run the demo</h1>
+    <p data-gw="demo-subtitle">Prompts go from this server through the gateway to the AI provider. The gateway decides; SmartConsole logs it.</p>
+  </div>
+  <div class="gw-counters" data-gw="demo-counters" aria-live="polite"></div>
+</header>
+
+<div data-gw="demo-notice"></div>
+
+<div class="gw-grid gw-grid-side-main">
+  <aside class="gw-card gw-scenes" aria-labelledby="gw-scenes-title">
+    <h2 class="gw-h2" id="gw-scenes-title">Scenes</h2>
+    <ol class="gw-scene-list" data-gw="scene-list"><li class="gw-muted">Loading scenes...</li></ol>
+  </aside>
+
+  <div class="gw-stack">
+    <section class="gw-card gw-presenter" data-gw="scene-panel" hidden aria-labelledby="gw-scene-title">
+      <div class="gw-card-head">
+        <span class="gw-label" data-gw="scene-number"></span>
+        <h2 class="gw-h2 gw-grow" id="gw-scene-title" data-gw="scene-title"></h2>
+        <button type="button" class="btn-gradient" id="gw-scene-run"><span class="btn-text">Run this scene</span><div class="loader hidden"></div></button>
+      </div>
+      <div class="gw-say">
+        <span class="gw-eyebrow">Say</span>
+        <p data-gw="scene-say"></p>
+      </div>
+      <div class="gw-say" data-gw="scene-after-wrap" hidden>
+        <span class="gw-eyebrow">After the result</span>
+        <p data-gw="scene-after"></p>
+      </div>
+      <p class="gw-help" data-gw="scene-note" hidden></p>
+      <div data-gw="scene-warning"></div>
+      <ol class="gw-steplist" data-gw="scene-steps" hidden></ol>
+      <div data-gw="scene-error"></div>
+    </section>
+
+    <section class="gw-card gw-result-card" data-gw="result-card" hidden aria-live="polite" aria-labelledby="gw-result-headline">
+      <div class="gw-result-top">
+        <span class="gw-verdict" data-gw="result-verdict"></span>
+        <span class="gw-muted" data-gw="result-by"></span>
+        <span class="gw-grow"></span>
+        <span class="gw-pill" data-gw="result-match"></span>
+      </div>
+      <h2 class="gw-h2 gw-result-headline" id="gw-result-headline" data-gw="result-headline"></h2>
+      <blockquote class="gw-quote" data-gw="result-prompt"></blockquote>
+      <div class="gw-facts" data-gw="result-facts"></div>
+      <div class="gw-pipeline" data-gw="result-pipeline" aria-label="Client to gateway to AI provider"></div>
+      <div class="gw-two">
+        <div class="gw-panel">
+          <span class="gw-eyebrow">What the user saw</span>
+          <strong data-gw="saw-title"></strong>
+          <dl class="gw-kv" data-gw="saw-kv"></dl>
+          <pre class="gw-pre" data-gw="saw-snippet" hidden></pre>
+        </div>
+        <div class="gw-panel">
+          <span class="gw-eyebrow">Proof in SmartConsole</span>
+          <strong data-gw="proof-title"></strong>
+          <dl class="gw-kv" data-gw="proof-kv"></dl>
+          <span class="gw-mono gw-muted gw-break" data-gw="proof-filter"></span>
+          <button type="button" class="secondary-btn gw-small-btn" id="gw-correlate"><span class="btn-text">Check the logs again</span><div class="loader hidden"></div></button>
+        </div>
+      </div>
+      <div data-gw="result-diagnosis"></div>
+    </section>
+
+    <section class="gw-card" aria-labelledby="gw-composer-title">
+      <h2 class="gw-h2 gw-sr-only" id="gw-composer-title">Send a prompt</h2>
+      <div class="gw-row">
+        <div class="input-group gw-grow">
+          <label class="input-label" for="gw-provider">Send to</label>
+          <select id="gw-provider" class="styled-select input-field"></select>
+        </div>
+        <div class="input-group gw-narrow">
+          <label class="input-label" for="gw-expect">Expected</label>
+          <select id="gw-expect" class="styled-select input-field">
+            <option value="block">Block</option>
+            <option value="allow">Allow</option>
+          </select>
+        </div>
+      </div>
+      <span class="gw-muted">Pick a suggested prompt or type your own</span>
+      <div class="gw-chips" data-gw="prompt-chips"></div>
+      <div class="gw-composer">
+        <label class="gw-sr-only" for="gw-prompt-text">Prompt</label>
+        <textarea id="gw-prompt-text" class="input-field" rows="3" maxlength="20000" placeholder="Type a prompt to send through the gateway"></textarea>
+        <button type="button" class="btn-gradient" id="gw-send"><span class="btn-text" data-gw="send-label">Send through the gateway</span><div class="loader hidden"></div></button>
+      </div>
+      <p class="gw-help" data-gw="key-hint"></p>
+      <div class="gw-actions gw-tls-row">
+        <span class="gw-result-line gw-grow" data-gw="tls-line" role="status" aria-live="polite"></span>
+        <button type="button" class="secondary-btn gw-small-btn" id="gw-tls-check">Check the TLS path</button>
+      </div>
+      <div data-gw="tls-out"></div>
+      <div data-gw="send-error"></div>
+    </section>
+
+    <section class="gw-card" aria-labelledby="gw-history-title">
+      <div class="gw-card-head">
+        <h2 class="gw-h2 gw-grow" id="gw-history-title">This session</h2>
+        <a class="secondary-btn gw-btn-link gw-small-btn" href="{{ url_for('gateway.diagnostics') }}">Logs and report</a>
+      </div>
+      <ol class="gw-history" data-gw="history"><li class="gw-muted">No prompts sent yet.</li></ol>
+    </section>
+  </div>
+</div>
+{% endblock %}

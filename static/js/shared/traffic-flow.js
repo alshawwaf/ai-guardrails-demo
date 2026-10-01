@@ -1,9 +1,51 @@
 // ============================================
 // Traffic Flow Visualization Module
+// All server / prompt / LLM data is rendered with textContent or DOM
+// construction. Colours come from the fixed palette in utils.js.
 // ============================================
 
-import { getAttackColor } from "./utils.js";
+import { getAttackColor, getDetectorInfo } from "./utils.js";
 import { renderScanPipeline, renderScanningPipeline } from "./pipeline.js";
+
+// Small element helper: el("span", "cls", "text")
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined && text !== null) node.textContent = String(text);
+  return node;
+}
+
+/**
+ * Fill the compact modal header (status badge + optional model badge + close).
+ * statusColor must be a fixed value chosen by this module, never data.
+ */
+function renderCompactHeader(modalHeader, { headerClass, statusColor, statusIcon, statusText, modelText }) {
+  modalHeader.className = `modal-header compact-header ${headerClass}`;
+  const left = el("div", "compact-header-left");
+  const badge = el("span", "compact-status-badge");
+  badge.style.setProperty("--status-color", statusColor);
+  badge.append(el("span", "status-icon", statusIcon), el("span", "status-text", statusText));
+  left.appendChild(badge);
+  if (modelText) left.appendChild(el("span", "compact-model-badge", modelText));
+  const closeBtn = el("button", "close-modal-btn", "×");
+  closeBtn.id = "close-result-modal";
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", "Close");
+  modalHeader.replaceChildren(left, closeBtn);
+}
+
+// guardrails_error may be a string or {status, error|message, request_id}.
+function formatGuardrailsError(err) {
+  if (!err) return "";
+  if (typeof err === "string") return err;
+  if (typeof err !== "object") return String(err);
+  const parts = [];
+  if (err.status != null) parts.push(`HTTP ${err.status}`);
+  const msg = err.error || err.message;
+  if (msg) parts.push(typeof msg === "string" ? msg : JSON.stringify(msg));
+  if (err.request_id) parts.push(`request ${err.request_id}`);
+  return parts.length ? parts.join(" · ") : JSON.stringify(err);
+}
 
 /**
  * Open the result modal in a "scanning…" progress state while /api/analyze
@@ -15,18 +57,16 @@ export function showScanning({ useInbound, useOutbound, provider, model }) {
   const modalHeader = modal.querySelector(".modal-header");
   const flagsContainer = document.getElementById("flags-container");
   const statsContainer = document.getElementById("result-stats");
-  if (flagsContainer) flagsContainer.innerHTML = "";
-  if (statsContainer) statsContainer.innerHTML = "";
-  modalHeader.className = "modal-header compact-header neutral";
-  modalHeader.innerHTML =
-    '<div class="compact-header-left">' +
-    '<span class="compact-status-badge" style="--status-color: #7c3aed">' +
-    '<span class="status-icon">⏳</span><span class="status-text">Scanning…</span></span></div>' +
-    '<button class="close-modal-btn" id="close-result-modal">&times;</button>';
-  const card = document.createElement("div");
-  card.className = "modal-card compact-flow-card";
+  if (flagsContainer) flagsContainer.replaceChildren();
+  if (statsContainer) statsContainer.replaceChildren();
+  if (modalHeader) {
+    renderCompactHeader(modalHeader, {
+      headerClass: "neutral", statusColor: "#7c3aed", statusIcon: "⏳", statusText: "Scanning…",
+    });
+  }
+  const card = el("div", "modal-card compact-flow-card");
   card.appendChild(renderScanningPipeline({ useInbound, useOutbound, provider, model }));
-  flagsContainer.appendChild(card);
+  if (flagsContainer) flagsContainer.appendChild(card);
   const closeBtn = document.getElementById("close-result-modal");
   if (closeBtn) closeBtn.addEventListener("click", () => modal.classList.add("hidden"));
   modal.classList.remove("hidden");
@@ -43,62 +83,68 @@ export function displayResults(data) {
   const statsContainer = document.getElementById("result-stats");
 
   // Reset content
-  flagsContainer.innerHTML = "";
-  if (statsContainer) statsContainer.innerHTML = "";
+  flagsContainer.replaceChildren();
+  if (statsContainer) statsContainer.replaceChildren();
 
   if (data.isComparison) {
     // --- Comparison View Logic ---
-    modalHeader.className = `modal-header compact-header neutral`;
-    modalHeader.innerHTML = `
-      <div class="compact-header-left">
-        <span class="compact-status-badge" style="--status-color: var(--primary-color)">
-          <span class="status-icon">📊</span>
-          <span class="status-text">Market Comparison</span>
-        </span>
-        <span class="compact-model-badge">AI Guardrails vs Competitors</span>
-      </div>
-      <button class="close-modal-btn" id="close-result-modal">&times;</button>
-    `;
+    renderCompactHeader(modalHeader, {
+      headerClass: "neutral",
+      statusColor: "var(--primary-color)",
+      statusIcon: "📊",
+      statusText: "Market Comparison",
+      modelText: "AI Guardrails vs Competitors",
+    });
 
-    const comparisonContainer = document.createElement("div");
-    comparisonContainer.className = "comparison-view";
+    const comparisonContainer = el("div", "comparison-view");
 
     // Chart Section
-    const chartCard = document.createElement("div");
-    chartCard.className = "modal-card comparison-chart-card";
-    chartCard.innerHTML = `<canvas id="comparison-chart" height="150"></canvas>`;
+    const chartCard = el("div", "modal-card comparison-chart-card");
+    const canvas = document.createElement("canvas");
+    canvas.id = "comparison-chart";
+    canvas.height = 150;
+    chartCard.appendChild(canvas);
     comparisonContainer.appendChild(chartCard);
 
     // Vendor Details Section
-    const vendorGrid = document.createElement("div");
-    vendorGrid.className = "vendor-comparison-grid";
+    const vendorGrid = el("div", "vendor-comparison-grid");
+    const results = Array.isArray(data.results) ? data.results : [];
 
-    data.results.forEach(res => {
-      const vendorCard = document.createElement("div");
+    results.forEach(res => {
       const isError = !!res.error;
       const vendorClass = isError ? 'error' : (res.flagged ? 'flagged' : 'safe');
-      vendorCard.className = `vendor-card ${vendorClass}`;
+      const vendorCard = el("div", `vendor-card ${vendorClass}`);
 
       const statusColor = isError ? "#f97316" : (res.flagged ? "#ef4444" : "#22c55e");
       const statusIcon = isError ? "⚠️" : (res.flagged ? "⛔" : "✓");
+      const score = Number(res.score);
+      const width = Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : 0;
 
-      vendorCard.innerHTML = `
-        <div class="vendor-info">
-          <div class="vendor-header">
-            <span class="vendor-name">${res.vendor}</span>
-            <span class="vendor-status" style="color: ${statusColor}">${statusIcon}</span>
-          </div>
-          <div class="vendor-score-bar">
-            <div class="score-fill" style="width: ${res.score}%; background: ${statusColor}"></div>
-          </div>
-          <div class="vendor-score-text">${isError ? 'Service Error' : `${res.score}% Threat Confidence`}</div>
-          <div class="vendor-details">
-            ${res.details && res.details.length > 0
-          ? res.details.map(d => `<span class="detail-pill">${d}</span>`).join('')
-          : '<span class="detail-pill">No threats detected</span>'}
-          </div>
-        </div>
-      `;
+      const info = el("div", "vendor-info");
+      const header = el("div", "vendor-header");
+      header.appendChild(el("span", "vendor-name", res.vendor));
+      const status = el("span", "vendor-status", statusIcon);
+      status.style.color = statusColor;
+      header.appendChild(status);
+
+      const bar = el("div", "vendor-score-bar");
+      const fill = el("div", "score-fill");
+      fill.style.width = `${width}%`;
+      fill.style.background = statusColor;
+      bar.appendChild(fill);
+
+      const scoreText = el("div", "vendor-score-text",
+        isError ? "Service Error" : `${res.score}% Threat Confidence`);
+
+      const details = el("div", "vendor-details");
+      if (Array.isArray(res.details) && res.details.length > 0) {
+        res.details.forEach(d => details.appendChild(el("span", "detail-pill", d)));
+      } else {
+        details.appendChild(el("span", "detail-pill", "No threats detected"));
+      }
+
+      info.append(header, bar, scoreText, details);
+      vendorCard.appendChild(info);
       vendorGrid.appendChild(vendorCard);
     });
 
@@ -108,18 +154,18 @@ export function displayResults(data) {
     // Initialize Chart (wait for DOM)
     setTimeout(() => {
       const chartCanvas = document.getElementById('comparison-chart');
-      if (!chartCanvas) return;
+      if (!chartCanvas || typeof Chart === "undefined") return;
 
       const ctx = chartCanvas.getContext('2d');
       new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: data.results.map(r => r.vendor),
+          labels: results.map(r => String(r.vendor == null ? "" : r.vendor)),
           datasets: [{
             label: 'Threat Confidence Score',
-            data: data.results.map(r => r.score || 0),
-            backgroundColor: data.results.map(r => r.flagged ? 'rgba(239, 68, 68, 0.7)' : 'rgba(34, 197, 94, 0.7)'),
-            borderColor: data.results.map(r => r.flagged ? '#ef4444' : '#22c55e'),
+            data: results.map(r => Number(r.score) || 0),
+            backgroundColor: results.map(r => r.flagged ? 'rgba(239, 68, 68, 0.7)' : 'rgba(34, 197, 94, 0.7)'),
+            borderColor: results.map(r => r.flagged ? '#ef4444' : '#22c55e'),
             borderWidth: 2,
             borderRadius: 6,
             borderSkipped: false,
@@ -169,10 +215,36 @@ export function displayResults(data) {
     const isFlagged = data.flagged;
     const isOutboundFlagged =
       guardrailsOutboundResult && guardrailsOutboundResult.flagged;
+    const inboundError = formatGuardrailsError(data.guardrails_error);
+    // /api/analyze answers 502 with guardrails_outbound_error when the reply
+    // could not be scanned (the reply is withheld): a failure, never "Safe".
+    const outboundError = !guardrailsOutboundResult
+      ? formatGuardrailsError(data.guardrails_outbound_error)
+      : "";
+    const guardError = inboundError || outboundError;
+    // Any other failed request (request_failed is set by the batch runner).
+    const requestError = !inboundError && !outboundError && (data.request_failed || (data.error && !data.openai_response))
+      ? String(data.error || (data.http_status ? `HTTP ${data.http_status}` : "Request failed"))
+      : "";
 
     let headerClass, statusIcon, statusText, statusColor;
 
-    if (!guardrailsResult) {
+    if (!guardrailsResult && inboundError) {
+      headerClass = "warning";
+      statusIcon = "⚠️";
+      statusText = "Scan Failed";
+      statusColor = "#f97316";
+    } else if (outboundError) {
+      headerClass = "warning";
+      statusIcon = "⚠️";
+      statusText = "Outbound Scan Failed";
+      statusColor = "#f97316";
+    } else if (requestError) {
+      headerClass = "warning";
+      statusIcon = "⚠️";
+      statusText = "Request Failed";
+      statusColor = "#f97316";
+    } else if (!guardrailsResult) {
       headerClass = "neutral";
       statusIcon = "○";
       statusText = "Not Scanned";
@@ -202,66 +274,71 @@ export function displayResults(data) {
 
     const modelDisplay = data.model_name ? `${providerLabel} · ${data.model_name}` : providerLabel;
 
-    modalHeader.className = `modal-header compact-header ${headerClass}`;
-    modalHeader.innerHTML = `
-      <div class="compact-header-left">
-        <span class="compact-status-badge" style="--status-color: ${statusColor}">
-          <span class="status-icon">${statusIcon}</span>
-          <span class="status-text">${statusText}</span>
-        </span>
-        <span class="compact-model-badge">${modelDisplay}</span>
-      </div>
-      <button class="close-modal-btn" id="close-result-modal">&times;</button>
-    `;
+    renderCompactHeader(modalHeader, { headerClass, statusColor, statusIcon, statusText, modelText: modelDisplay });
 
-    const flowCard = document.createElement("div");
-    flowCard.className = "modal-card compact-flow-card";
+    const flowCard = el("div", "modal-card compact-flow-card");
 
-    const useGuardrails = document.getElementById("guardrails-scan-checkbox").checked;
-    const useGuardrailsOutbound = document.getElementById(
-      "guardrails-outbound-checkbox"
-    ).checked;
+    // Scan toggles live on the playground; elsewhere infer from the result.
+    const inCb = document.getElementById("guardrails-scan-checkbox");
+    const outCb = document.getElementById("guardrails-outbound-checkbox");
+    const useGuardrails = inCb ? inCb.checked : !!guardrailsResult;
+    const useGuardrailsOutbound = outCb ? outCb.checked : !!guardrailsOutboundResult;
 
     const flowDiagram = renderTrafficFlow(data, useGuardrails, useGuardrailsOutbound);
     flowDiagram.classList.add("modal-pipeline");
     flowCard.appendChild(flowDiagram);
     flagsContainer.appendChild(flowCard);
 
-    const inboundVectors =
-      guardrailsResult && guardrailsResult.attack_vectors
-        ? guardrailsResult.attack_vectors
-        : [];
-    const outboundVectors = [];
-
-    if (guardrailsOutboundResult && guardrailsOutboundResult.breakdown) {
-      guardrailsOutboundResult.breakdown.forEach((r) => {
-        if (r.detected && r.detector_type) {
-          const vectorName = r.detector_type.split("/").pop();
-          if (!outboundVectors.includes(vectorName)) {
-            outboundVectors.push(vectorName);
-          }
-        }
-      });
+    if (guardError) {
+      const errSection = el("div", "compact-threat-section");
+      errSection.appendChild(el("span", "threat-section-label",
+        outboundError && !inboundError ? "Outbound guard error:" : "Guard error:"));
+      errSection.appendChild(el("span", "compact-guard-error", guardError));
+      flagsContainer.appendChild(errSection);
+      if (outboundError && !inboundError) {
+        const note = el("div", "compact-threat-section");
+        note.appendChild(el("span", "compact-guard-error",
+          "The model replied, but the reply could not be scanned, so it was withheld."));
+        flagsContainer.appendChild(note);
+      }
+    } else if (requestError) {
+      const errSection = el("div", "compact-threat-section");
+      errSection.appendChild(el("span", "threat-section-label", "Error:"));
+      errSection.appendChild(el("span", "compact-guard-error", requestError));
+      flagsContainer.appendChild(errSection);
     }
 
+    // Keep the full detector_type (e.g. "moderated_content/hate") so labels keep
+    // their category; fall back to the short attack_vectors list.
+    const detectedTypes = (result) => {
+      const out = [];
+      if (result && Array.isArray(result.breakdown)) {
+        result.breakdown.forEach((r) => {
+          if (r && r.detected && r.detector_type) {
+            const t = String(r.detector_type);
+            if (!out.includes(t)) out.push(t);
+          }
+        });
+      }
+      if (out.length === 0 && result && Array.isArray(result.attack_vectors)) {
+        result.attack_vectors.forEach((v) => { if (v && !out.includes(String(v))) out.push(String(v)); });
+      }
+      return out;
+    };
+    const inboundVectors = detectedTypes(guardrailsResult);
+    const outboundVectors = detectedTypes(guardrailsOutboundResult);
+
     if (inboundVectors.length > 0 || outboundVectors.length > 0) {
-      const threatSection = document.createElement("div");
-      threatSection.className = "compact-threat-section";
+      const threatSection = el("div", "compact-threat-section");
+      threatSection.appendChild(el("span", "threat-section-label", "Detected:"));
 
-      const threatLabel = document.createElement("span");
-      threatLabel.className = "threat-section-label";
-      threatLabel.textContent = "Detected:";
-      threatSection.appendChild(threatLabel);
-
-      const pillContainer = document.createElement("div");
-      pillContainer.className = "threat-pills";
+      const pillContainer = el("div", "threat-pills");
 
       [...inboundVectors, ...outboundVectors].forEach((vector) => {
-        const pill = document.createElement("span");
-        pill.className = "threat-pill";
-        const color = getAttackColor(vector);
-        pill.style.setProperty("--pill-color", color);
-        pill.textContent = vector.replace(/_/g, " ");
+        const info = getDetectorInfo(vector);
+        const pill = el("span", "threat-pill", info.label);
+        if (info.label !== info.type) pill.title = info.type;
+        pill.style.setProperty("--pill-color", getAttackColor(vector));
         pillContainer.appendChild(pill);
       });
 
@@ -269,23 +346,18 @@ export function displayResults(data) {
       flagsContainer.appendChild(threatSection);
     }
 
-    const detailsPane = document.createElement("div");
+    const detailsPane = el("div", "hidden");
     detailsPane.id = "flow-details-pane";
-    detailsPane.className = "hidden";
     flagsContainer.appendChild(detailsPane);
 
     if (data.openai_response) {
-      const responseSection = document.createElement("div");
-      responseSection.className = "compact-response-section";
+      const responseSection = el("div", "compact-response-section");
 
-      const responseHeader = document.createElement("div");
-      responseHeader.className = "response-header";
-      responseHeader.innerHTML = `<span class="response-label">${providerLabel} Response</span>`;
+      const responseHeader = el("div", "response-header");
+      responseHeader.appendChild(el("span", "response-label", `${providerLabel} Response`));
       responseSection.appendChild(responseHeader);
 
-      const responseBox = document.createElement("div");
-      responseBox.className = "compact-response-box";
-      responseBox.textContent = data.openai_response;
+      const responseBox = el("div", "compact-response-box", data.openai_response);
       responseSection.appendChild(responseBox);
 
       flagsContainer.appendChild(responseSection);
@@ -304,13 +376,12 @@ export function displayResults(data) {
 }
 
 /**
- * Create attack card element
+ * Create attack card element (legacy, currently unused)
  * @param {string} vector - Attack vector name
  * @returns {HTMLElement} Card element
  */
 function createAttackCard(vector) {
-  const card = document.createElement("div");
-  card.className = "attack-type-card";
+  const card = el("div", "attack-type-card");
   card.style.display = "flex";
   card.style.flexDirection = "row";
   card.style.alignItems = "center";
@@ -322,12 +393,9 @@ function createAttackCard(vector) {
   card.style.borderColor = `${color}40`;
   card.style.borderLeft = `3px solid ${color}`;
 
-  card.innerHTML = `
-        <span class="attack-name" style="margin-left: 0;">${vector.replace(
-    /_/g,
-    " "
-  )}</span>
-    `;
+  const name = el("span", "attack-name", getDetectorInfo(vector).label);
+  name.style.marginLeft = "0";
+  card.appendChild(name);
   return card;
 }
 
@@ -367,26 +435,34 @@ function showStepDetails(stepId, data) {
       title = "Demo Inbound Scan";
       content = data.guardrails_result
         ? JSON.stringify(data.guardrails_result, null, 2)
-        : "No scan performed.";
+        : (data.guardrails_error ? formatGuardrailsError(data.guardrails_error) : "No scan performed.");
       break;
     case "llm":
       if (data.model_provider === "azure") {
         title = "Azure OpenAI Response";
       } else if (data.model_provider === "gemini") {
         title = "Google Gemini Response";
+      } else if (data.model_provider === "anthropic") {
+        title = "Anthropic Claude Response";
       } else if (data.model_provider === "ollama") {
         title = "Ollama Response";
       } else {
         title = "OpenAI Response";
       }
-      content = data.openai_response || "No response generated.";
+      content = data.openai_response
+        || (data.guardrails_outbound_error
+          ? "The model replied, but the reply was withheld because the outbound scan failed."
+          : "No response generated.");
       break;
     case "outbound":
       title = "Demo Outbound Scan";
       content = data.guardrails_outbound_result
         ? JSON.stringify(data.guardrails_outbound_result, null, 2)
-        : "No scan performed.";
+        : (data.guardrails_outbound_error
+          ? formatGuardrailsError(data.guardrails_outbound_error)
+          : "No scan performed.");
       break;
+    case "deliver":
     case "user-response":
       title = "Response Delivered to User";
       content =
@@ -395,17 +471,41 @@ function showStepDetails(stepId, data) {
       break;
   }
 
-  pane.innerHTML = `
-        <div class="flow-details-header">
-            <div class="flow-details-title">${title}</div>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <button class="copy-btn" onclick="navigator.clipboard.writeText(this.parentElement.parentElement.nextElementSibling.textContent).then(() => { this.textContent = 'Copied!'; setTimeout(() => this.textContent = 'Copy', 2000); })">Copy</button>
-                <button class="close-details-btn" onclick="document.getElementById('flow-details-pane').classList.add('hidden'); document.querySelectorAll('.flow-step').forEach(s => s.classList.remove('selected')); document.querySelectorAll('.flow-arrow').forEach(a => a.classList.remove('path-selected'));">&times;</button>
-            </div>
-        </div>
-        <div class="flow-details-content">
-            <div class="json-viewer">${content}</div>
-        </div>
-    `;
+  const header = el("div", "flow-details-header");
+  header.appendChild(el("div", "flow-details-title", title));
+
+  const actions = el("div");
+  actions.style.display = "flex";
+  actions.style.gap = "0.5rem";
+  actions.style.alignItems = "center";
+
+  const viewer = el("div", "json-viewer", content);
+
+  const copyBtn = el("button", "copy-btn", "Copy");
+  copyBtn.type = "button";
+  copyBtn.addEventListener("click", () => {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(viewer.textContent).then(() => {
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => { copyBtn.textContent = "Copy"; }, 2000);
+    }).catch(() => {});
+  });
+
+  const closeBtn = el("button", "close-details-btn", "×");
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.addEventListener("click", () => {
+    pane.classList.add("hidden");
+    document.querySelectorAll(".flow-step").forEach((s) => s.classList.remove("selected"));
+    document.querySelectorAll(".flow-arrow").forEach((a) => a.classList.remove("path-selected"));
+  });
+
+  actions.append(copyBtn, closeBtn);
+  header.appendChild(actions);
+
+  const body = el("div", "flow-details-content");
+  body.appendChild(viewer);
+
+  pane.replaceChildren(header, body);
   pane.classList.remove("hidden");
 }

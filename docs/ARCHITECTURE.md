@@ -25,7 +25,10 @@ static/js/
 #### Shared Modules
 
 **`shared/utils.js`**
-- `getAttackColor(attackType)` - Maps attack types to color codes (27 types)
+- `escapeHtml(text)` - Escapes text for the few places that build HTML strings; everything else uses `textContent`
+- `getDetectorInfo(type)` / `getDetectorLabel(type)` - Display label and colour for a Lakera detector type (full `moderated_content/hate` or short `hate` form; unknown types get a neutral colour and their raw text)
+- `getAttackColor(attackType)` - Colour from the same fixed palette (never a value taken from data)
+- `createDetectorBadge(type, className)` - A detector badge built with DOM calls
 - `setLoading(isLoading, btn)` - Manages button loading states
 
 **`shared/traffic-flow.js`**
@@ -273,9 +276,10 @@ import('./pages/dashboard.js').then(module => {
 - AI Guardrails scans all inputs
 - No direct eval() or innerHTML with user data
 
-### CORS
-- API routes protected
-- Same-origin policy enforced
+### CORS and cross-site requests
+- No CORS by default. `CORS_ORIGINS` enables it for `/api/*` only for the explicit origins listed; `*` is ignored with a warning
+- Every route needs sign-in except login, health and static files
+- POST, PUT, PATCH and DELETE from another origin (Origin or Referer) get `403`
 
 ## Testing Strategy
 

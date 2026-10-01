@@ -6,23 +6,28 @@
         <h2 class="login-title">AI Guardrails Playground</h2>
         <p class="login-subtitle">Please sign in to continue</p>
         
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <div class="alert alert-error">
-                    {{ messages[0] }}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="alert {{ 'alert-error' if category in ('error', 'message') else 'alert-info' }}" role="alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+            {% if login_problem and not messages %}
+                <div class="alert alert-error" role="alert">
+                    Sign-in is disabled until the administrator account is configured. {{ login_problem }}
                 </div>
             {% endif %}
         {% endwith %}
 
-        <form method="POST" action="/login">
+        <form method="POST" action="{{ url_for('login') }}">
             <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" id="email" name="email" required placeholder="admin@example.com" class="form-control">
+                <input type="email" id="email" name="email" required maxlength="320" autocomplete="username" placeholder="admin@example.com" class="form-control">
             </div>
-            
+
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" required placeholder="••••••••" class="form-control">
+                <input type="password" id="password" name="password" required maxlength="1024" autocomplete="current-password" placeholder="••••••••" class="form-control">
             </div>
             
             <button type="submit" class="btn-gradient btn-block">Sign In</button>
@@ -111,6 +116,17 @@
         background: rgba(239, 68, 68, 0.1);
         border: 1px solid rgba(239, 68, 68, 0.2);
         color: #fca5a5;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        text-align: center;
+        font-size: 0.9rem;
+    }
+
+    .alert-info {
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.25);
+        color: var(--text-primary);
         padding: 0.75rem;
         border-radius: 8px;
         margin-bottom: 1.5rem;

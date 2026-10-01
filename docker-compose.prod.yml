@@ -1,0 +1,78 @@
+# Production stack: docker-compose.yml plus the Nginx reverse proxy (port 80)
+# and a daily SQLite backup. Use both files together:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d    # or: make prod
+#
+# To make every plain "docker compose" command on this host use both files, put
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
+# in .env (separate the files with ";" on Windows).
+#
+# Needs Docker Compose 2.24.4 or later ("docker compose version") for the
+# !override tag below. Check the result before the first start:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml config web
+# must list exactly one port, with host_ip: 127.0.0.1, and TRUSTED_PROXY_HOPS "1".
+#
+# Why the web service changes here:
+# - Behind nginx every request reaches the app from the nginx container. The
+#   app therefore trusts exactly one proxy hop (TRUSTED_PROXY_HOPS=1) and takes
+#   the client address from the X-Forwarded-For entry nginx appends. The sign-in
+#   limit (10 attempts per minute per address) and the "Failed sign-in from"
+#   log lines are then per client, not one shared count for everyone.
+# - The app port is published on this host's loopback only. A client that could
+#   reach port 9000 directly could send its own X-Forwarded-For and choose the
+#   address the sign-in limit counts. Users come in through nginx on port 80
+#   (443 with the TLS block in nginx/nginx.conf). "make health" and
+#   curl http://localhost:9000/health still work on the Docker host itself.
+# - One more proxy in front of nginx (a cloud load balancer, say)? Set
+#   TRUSTED_PROXY_HOPS below to 2 only if that proxy always sets X-Forwarded-For
+#   and is the only way to reach nginx.
+#
+# nginx/nginx.conf sends traffic to web:9000; keep APP_PORT at 9000 with this
+# file, or change the upstream there too.
+
+services:
+  web:
+    ports: !override
+      - "127.0.0.1:${APP_PORT:-9000}:${APP_PORT:-9000}"
+    environment:
+      - TRUSTED_PROXY_HOPS=1
+
+  # Nginx reverse proxy. Serves plain HTTP on 80; nginx/nginx.conf has a
+  # commented TLS server block for 443 (then set SESSION_COOKIE_SECURE=true).
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - web
+    networks:
+      - guardrails-network
+    restart: unless-stopped
+    labels:
+      - "com.aiguardrails.demo=true"
+      - "com.aiguardrails.service=nginx"
+
+  # Automated backup service
+  backup:
+    image: ghcr.io/alshawwaf/ai-guardrails-demo:latest
+    pull_policy: always
+    # build disabled: prebuilt + published by .github/workflows/publish-image.yml; uncomment to build locally.
+    # build: .
+    command: >
+      sh -c "while true; do
+        python scripts/backup_db.py;
+        sleep 86400;
+      done"
+    volumes:
+      - ./instance:/app/instance
+      - ./backups:/app/backups
+    networks:
+      - guardrails-network
+    restart: unless-stopped
+    labels:
+      - "com.aiguardrails.demo=true"
+      - "com.aiguardrails.service=backup"

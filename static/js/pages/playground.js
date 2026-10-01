@@ -1,15 +1,62 @@
 // ============================================
 // Playground Page Module
+// Prompts, triggers, model names and LLM output are rendered as text only.
 // ============================================
 
-import { setLoading, showNotification } from '../shared/utils.js';
+import { apiFetch, setLoading, showNotification } from '../shared/utils.js';
 import { displayResults, showScanning } from '../shared/traffic-flow.js';
 import { initHeroPipeline } from '../shared/pipeline.js';
+
+// Small element helper: el("span", "cls", "text")
+function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    return node;
+}
+
+// Button content "<span class=icon>ICON</span> LABEL" without innerHTML.
+function setIconLabel(btn, icon, label) {
+    btn.replaceChildren(el("span", "icon", icon), document.createTextNode(" " + label));
+}
+
+// guardrails_error may be a string or {status, error|message, request_id}.
+function guardErrorText(err) {
+    if (!err) return "";
+    if (typeof err === "string") return err;
+    if (typeof err !== "object") return String(err);
+    const parts = [];
+    if (err.status != null) parts.push(`HTTP ${err.status}`);
+    const msg = err.error || err.message;
+    if (msg) parts.push(typeof msg === "string" ? msg : JSON.stringify(msg));
+    if (err.request_id) parts.push(`request ${err.request_id}`);
+    return parts.length ? parts.join(" · ") : JSON.stringify(err);
+}
+
+// Server-provided page data (model lists, pinned default provider/model) from
+// the JSON data block in playground.html. Read here rather than set by an
+// inline script, which the Content-Security-Policy does not allow.
+function loadPageData() {
+    const node = document.getElementById("playground-data");
+    let data = {};
+    if (node) {
+        try {
+            data = JSON.parse(node.textContent || "{}") || {};
+        } catch (e) {
+            console.error("Could not read the playground page data:", e);
+            data = {};
+        }
+    }
+    window.llmData = (data && typeof data.llmData === "object" && data.llmData) || {};
+    window.defaultProvider = data.defaultProvider || null;
+    window.defaultModel = data.defaultModel || null;
+}
 
 /**
  * Initialize playground page
  */
 export function initPlayground() {
+    loadPageData();
     // Interactive "how Guard works" pipeline at the top of the page.
     initHeroPipeline(document.getElementById("guard-pipeline"));
 
@@ -91,10 +138,14 @@ export function initPlayground() {
             hint = document.createElement("div");
             hint.id = "ollama-connection-hint";
             hint.className = "cp2-model-hint";
-            hint.innerHTML =
-                `<span>Can't reach Ollama — check the model server / ` +
-                `<a href="/settings">Settings</a>.</span>` +
-                `<button type="button" id="ollama-retry-btn" class="cp2-model-hint-retry">Retry</button>`;
+            const msg = el("span", "", "Can't reach Ollama — check the model server / ");
+            const link = el("a", "", "Settings");
+            link.href = "/settings";
+            msg.append(link, document.createTextNode("."));
+            const retryBtn = el("button", "cp2-model-hint-retry", "Retry");
+            retryBtn.type = "button";
+            retryBtn.id = "ollama-retry-btn";
+            hint.append(msg, retryBtn);
             // Place the hint directly under the model row.
             row.insertAdjacentElement("afterend", hint);
             const retry = hint.querySelector("#ollama-retry-btn");
@@ -109,7 +160,7 @@ export function initPlayground() {
         const provider = providerSelect.value;
         const data = window.llmData[provider];
 
-        modelOptions.innerHTML = "";
+        modelOptions.replaceChildren();
         selectedModelText.textContent = "Select a model...";
         setOllamaHint(false);
 
@@ -185,7 +236,11 @@ export function initPlayground() {
         const txt = setDefaultBtn.querySelector(".cp2-default-text");
         if (txt) txt.textContent = isDefault ? "Default model" : "Set as default";
         const icon = setDefaultBtn.querySelector("svg");
-        if (icon) icon.innerHTML = isDefault ? '<path d="M5 13l4 4L19 7"/>' : '<path d="M6 3h12v18l-6-4-6 4z"/>';
+        if (icon) {
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("d", isDefault ? "M5 13l4 4L19 7" : "M6 3h12v18l-6-4-6 4z");
+            icon.replaceChildren(path);
+        }
     }
 
     // Set up listeners
@@ -209,22 +264,24 @@ export function initPlayground() {
         providerSelect.addEventListener("change", populateModels);
         
         // Fetch API settings to check configuration
-        fetch("/api/settings")
+        apiFetch("/api/settings")
             .then(res => res.json())
             .then(settings => {
                 const guardrailsInbound = document.getElementById("guardrails-scan-checkbox");
                 const guardrailsOutbound = document.getElementById("guardrails-outbound-checkbox");
-                
-                if (!settings.guardrails_configured) {
+                // Scans need only the API key (no project ID: Lakera's default policy).
+                const keyConfigured = settings.guardrails_key_configured ?? settings.guardrails_configured;
+
+                if (!keyConfigured) {
                     if (guardrailsInbound) {
                         guardrailsInbound.disabled = true;
-                        guardrailsInbound.parentElement.title = "AI Guardrails API Key and Project ID required in Settings";
+                        guardrailsInbound.parentElement.title = "AI Guardrails API key required in Settings";
                         guardrailsInbound.parentElement.style.opacity = "0.5";
                         guardrailsInbound.parentElement.style.cursor = "not-allowed";
                     }
                     if (guardrailsOutbound) {
                         guardrailsOutbound.disabled = true;
-                        guardrailsOutbound.parentElement.title = "AI Guardrails API Key and Project ID required in Settings";
+                        guardrailsOutbound.parentElement.title = "AI Guardrails API key required in Settings";
                         guardrailsOutbound.parentElement.style.opacity = "0.5";
                         guardrailsOutbound.parentElement.style.cursor = "not-allowed";
                     }
@@ -326,7 +383,7 @@ export function initPlayground() {
             });
 
             try {
-                const response = await fetch("/api/analyze", {
+                const response = await apiFetch("/api/analyze", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -339,11 +396,21 @@ export function initPlayground() {
                 });
                 const data = await response.json();
 
-                if (!response.ok) throw new Error(data.error || "Analysis failed");
+                if (!response.ok) {
+                    const outbound = data.guardrails_outbound_error
+                        ? `Outbound scan failed, the model response was withheld: ${guardErrorText(data.guardrails_outbound_error)}`
+                        : "";
+                    throw new Error(outbound || data.error || guardErrorText(data.guardrails_error) || "Analysis failed");
+                }
 
                 data.model_provider = modelProvider;
                 data.model_name = modelName;
                 displayResults(data);
+
+                // The guard scan failed: say so instead of looking "safe".
+                if (data.guardrails_error) {
+                    showNotification(`AI Guardrails scan failed: ${guardErrorText(data.guardrails_error)}`, 'error');
+                }
 
                 if (data.openai_response && (
                     data.openai_response.includes("not configured") ||
@@ -389,28 +456,30 @@ export function initPlayground() {
 
     async function loadTriggers() {
         try {
-            const response = await fetch("/api/triggers");
-            allTriggers = await response.json();
+            const response = await apiFetch("/api/triggers");
+            const list = await response.json();
+            if (!response.ok || !Array.isArray(list)) throw new Error("Unexpected triggers response");
+            allTriggers = list;
             renderTriggers(allTriggers);
         } catch (error) {
             console.error("Failed to load triggers:", error);
             if (triggersList) {
-                triggersList.innerHTML = '<div class="error-message">Failed to load triggers</div>';
+                triggersList.replaceChildren(el("div", "error-message", "Failed to load triggers"));
             }
         }
     }
 
     function renderTriggers(triggers) {
         if (!triggersList) return;
-        triggersList.innerHTML = "";
+        triggersList.replaceChildren();
 
         if (triggers.length === 0) {
-            triggersList.innerHTML = '<div class="no-results">No triggers found</div>';
+            triggersList.appendChild(el("div", "no-results", "No triggers found"));
             return;
         }
 
         // Group by category
-        const categorized = {};
+        const categorized = Object.create(null);
         triggers.forEach(trigger => {
             if (!categorized[trigger.category]) categorized[trigger.category] = [];
             categorized[trigger.category].push(trigger);
@@ -418,22 +487,17 @@ export function initPlayground() {
 
         // Render categories
         Object.keys(categorized).sort().forEach(category => {
-            const section = document.createElement("div");
-            section.className = "example-category";
-            section.innerHTML = `<h4>${category}</h4>`;
+            const section = el("div", "example-category");
+            section.appendChild(el("h4", "", category));
 
             const grid = document.createElement("div");
             grid.className = "example-grid-small";
 
             categorized[category].forEach(trigger => {
-                const card = document.createElement("div");
-                card.className = "mini-card";
-                card.innerHTML = `
-                    <div class="card-content">
-                        <span class="card-icon">←</span>
-                        ${trigger.prompt}
-                    </div>
-                `;
+                const card = el("div", "mini-card");
+                const content = el("div", "card-content");
+                content.append(el("span", "card-icon", "←"), document.createTextNode(String(trigger.prompt == null ? "" : trigger.prompt)));
+                card.appendChild(content);
                 card.title = "Click to use this trigger in the playground";
 
                 card.addEventListener("click", () => {
@@ -458,8 +522,8 @@ export function initPlayground() {
         searchInput.addEventListener("input", (e) => {
             const term = e.target.value.toLowerCase();
             const filtered = allTriggers.filter(ex =>
-                ex.prompt.toLowerCase().includes(term) ||
-                ex.category.toLowerCase().includes(term)
+                String(ex.prompt || "").toLowerCase().includes(term) ||
+                String(ex.category || "").toLowerCase().includes(term)
             );
             renderTriggers(filtered);
         });
@@ -497,9 +561,8 @@ export function initPlayground() {
     if (pauseBatchBtn) {
         pauseBatchBtn.addEventListener("click", () => {
             isBatchPaused = !isBatchPaused;
-            pauseBatchBtn.innerHTML = isBatchPaused
-                ? '<span class="icon">▶️</span> Resume'
-                : '<span class="icon">⏸️</span> Pause';
+            if (isBatchPaused) setIconLabel(pauseBatchBtn, "▶️", "Resume");
+            else setIconLabel(pauseBatchBtn, "⏸️", "Pause");
         });
     }
 
@@ -516,12 +579,12 @@ export function initPlayground() {
         const logList = document.getElementById("batch-log-list");
 
         // Reset UI
-        if (logList) logList.innerHTML = "";
+        if (logList) logList.replaceChildren();
         if (progressBar) progressBar.style.width = "0%";
         if (counter) counter.textContent = `0/${examples.length}`;
         if (statusText) statusText.textContent = "Scanning...";
         if (pauseBatchBtn) {
-            pauseBatchBtn.innerHTML = '<span class="icon">⏸️</span> Pause';
+            setIconLabel(pauseBatchBtn, "⏸️", "Pause");
             pauseBatchBtn.disabled = false;
         }
 
@@ -547,7 +610,7 @@ export function initPlayground() {
             if (currentPrompt) currentPrompt.textContent = example.prompt;
 
             try {
-                const response = await fetch("/api/analyze", {
+                const response = await apiFetch("/api/analyze", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -564,30 +627,35 @@ export function initPlayground() {
 
                 // Add to log
                 if (logList) {
-                    const logItem = document.createElement("div");
-                    logItem.className = "batch-log-item clickable";
+                    const logItem = el("div", "batch-log-item clickable");
 
-                    const isFlagged = result.flagged || (result.attack_vectors && result.attack_vectors.length > 0);
-                    const statusIcon = isFlagged ? "⚠️" : "✅";
-                    const statusClass = isFlagged ? "status-danger" : "status-safe";
+                    // A failed request or guard scan is an error, never "Safe".
+                    const isError = !response.ok || !!result.error || !!result.guardrails_error || !!result.guardrails_outbound_error;
+                    const isFlagged = result.flagged || (Array.isArray(result.attack_vectors) && result.attack_vectors.length > 0);
+                    const statusIcon = isFlagged || isError ? "⚠️" : "✅";
+                    const statusClass = isFlagged || isError ? "status-danger" : "status-safe";
+                    const statusLabel = isFlagged ? "Threat Detected" : isError ? "Scan Error" : "Safe";
 
-                    logItem.innerHTML = `
-                        <span class="batch-log-icon">${statusIcon}</span>
-                        <div class="batch-log-content">
-                            <div class="batch-log-prompt">${example.prompt}</div>
-                            <div class="batch-log-result ${statusClass}">
-                                ${isFlagged ? "Threat Detected" : "Safe"}
-                            </div>
-                        </div>
-                        <span class="batch-log-view">View →</span>
-                    `;
+                    const logContent = el("div", "batch-log-content");
+                    logContent.append(
+                        el("div", "batch-log-prompt", example.prompt),
+                        el("div", `batch-log-result ${statusClass}`, statusLabel)
+                    );
+                    logItem.append(
+                        el("span", "batch-log-icon", statusIcon),
+                        logContent,
+                        el("span", "batch-log-view", "View →")
+                    );
 
-                    // Store the result data for click handler
+                    // Store the result data for click handler. request_failed
+                    // makes the result modal show the failure (never "Safe").
                     const resultData = {
                         ...result,
                         prompt: example.prompt,
                         model_provider: modelProvider,
-                        model_name: modelName
+                        model_name: modelName,
+                        request_failed: !response.ok,
+                        http_status: response.status
                     };
 
                     logItem.addEventListener("click", () => {
@@ -599,7 +667,7 @@ export function initPlayground() {
                 }
 
             } catch (err) {
-                if (err.name === 'AbortError') break;
+                if (err.name === 'AbortError' || err.name === 'SignInRequiredError') break;
                 console.error("Batch scan error:", err);
             }
 

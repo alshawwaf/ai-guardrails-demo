@@ -5,8 +5,11 @@ import json
 import logging
 from datetime import datetime
 
-# Set test DB URL
-db_path = os.path.join(os.getcwd(), 'logs', 'test_request_persistence.db').replace('\\', '/')
+# Set test DB URL (under LOGS_DIR, which tests/conftest.py points at a temp dir)
+logs_dir = os.environ.get('LOGS_DIR', 'logs')
+os.makedirs(logs_dir, exist_ok=True)
+db_file = os.path.join(os.path.abspath(logs_dir), 'test_request_persistence.db')
+db_path = db_file.replace('\\', '/')
 os.environ['DATABASE_URL'] = f'sqlite:///{db_path}'
 
 # Add parent dir to path
@@ -25,9 +28,9 @@ class TestRequestPersistence(unittest.TestCase):
         db.drop_all()
         db.engine.dispose()
         self.app_context.pop()
-        if os.path.exists('logs/test_request_persistence.db'):
+        if os.path.exists(db_file):
             try:
-                os.remove('logs/test_request_persistence.db')
+                os.remove(db_file)
             except PermissionError:
                 pass
 
@@ -42,12 +45,12 @@ class TestRequestPersistence(unittest.TestCase):
             'error': None
         }
         save_log_to_db(entry)
-        
+
         log = Log.query.filter_by(uuid='test-uuid').first()
         self.assertIsNotNone(log)
         self.assertIsNotNone(log.request_json)
         self.assertEqual(log.request_json['messages'][0]['content'], 'test prompt')
-        
+
         # Verify to_dict
         log_dict = log.to_dict()
         self.assertIn('request', log_dict)

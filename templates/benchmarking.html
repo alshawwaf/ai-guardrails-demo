@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block head_scripts %}{% include "_chartjs.html" %}{% endblock %}
 
 {% block content %}
 <div class="benchmark-page">
@@ -230,7 +231,7 @@
         <div class="error-body">
             <p class="error-message" id="error-message">An unknown error occurred.</p>
             <div class="error-details-container">
-                <button class="toggle-error-details" onclick="document.getElementById('error-details').classList.toggle('hidden')">
+                <button type="button" class="toggle-error-details" id="toggle-error-details" aria-controls="error-details" aria-expanded="false">
                     Show Technical Details
                 </button>
                 <pre id="error-details" class="error-details hidden"></pre>

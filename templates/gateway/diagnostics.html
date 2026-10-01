@@ -1,0 +1,53 @@
+{% extends "gateway/_layout.html" %}
+{% block gw_main %}
+<header class="gw-hero">
+  <div class="gw-hero-text">
+    <span class="hero-badge">Step {{ gw_step_no }} of {{ gw_step_total }}</span>
+    <h1>Logs and report</h1>
+    <p>The last error with its fix, and the run log of this session. Keys, session IDs and secrets found in prompts are masked before anything is written.</p>
+  </div>
+</header>
+
+<div data-gw="diag-install"></div>
+
+<section class="gw-card" data-gw="diag-error-card" aria-labelledby="gw-diag-error-title">
+  <h2 class="gw-h2" id="gw-diag-error-title">Last error</h2>
+  <div data-gw="diag-error"><p class="gw-muted">No errors in this session.</p></div>
+  <div class="gw-actions" data-gw="diag-actions"></div>
+  <div data-gw="diag-action-progress"></div>
+</section>
+
+<section class="gw-card" aria-labelledby="gw-diag-log-title">
+  <div class="gw-card-head gw-wrap">
+    <h2 class="gw-h2 gw-grow" id="gw-diag-log-title">Log</h2>
+    <div class="gw-filterbar" role="group" aria-label="Level" data-gw="level-filters">
+      <button type="button" class="gw-filter active" data-level="">All</button>
+      <button type="button" class="gw-filter" data-level="ERROR">Errors <span data-gw="count-ERROR"></span></button>
+      <button type="button" class="gw-filter" data-level="WARN">Warnings <span data-gw="count-WARN"></span></button>
+      <button type="button" class="gw-filter" data-level="HINT">Hints <span data-gw="count-HINT"></span></button>
+    </div>
+    <div class="gw-filterbar" role="group" aria-label="Component" data-gw="component-filters">
+      <button type="button" class="gw-filter active" data-component="">All parts</button>
+    </div>
+  </div>
+  <div class="gw-actions">
+    <button type="button" class="secondary-btn gw-small-btn" id="gw-log-refresh">Refresh</button>
+    <label class="gw-check"><input type="checkbox" id="gw-log-follow" checked> Follow while a job runs</label>
+    <span class="gw-grow"></span>
+    <button type="button" class="secondary-btn gw-small-btn" id="gw-report-save">Save report (JSON)</button>
+  </div>
+  <p class="gw-muted gw-mono gw-break" data-gw="diag-log-path"></p>
+  <div class="gw-log" data-gw="log-view" role="log" aria-live="off" tabindex="0"></div>
+</section>
+
+<section class="gw-card" aria-labelledby="gw-diag-known-title">
+  <h2 class="gw-h2" id="gw-diag-known-title">What AI Guard explains for you</h2>
+  <div class="gw-known">
+    <div><strong>Partial policy install</strong><span>Reads the last installation on the gateway: if Access Control failed while Threat Prevention succeeded, the gateway still runs the older policy. Quotes the install errors.</span></div>
+    <div><strong>HTTPS Inspection off</strong><span>Detected from the gateway setting and the certificate this server sees. Offers a fix that asks for approval.</span></div>
+    <div><strong>Login refused (403)</strong><span>Points to Management API &gt; Accept API calls from, and api restart.</span></div>
+    <div><strong>Guard API key rejected</strong><span>Says whether the key or the project ID is wrong, without printing either.</span></div>
+    <div><strong>Attack was allowed</strong><span>Checks the gateway logs for a Prevent entry and tells you if the traffic took another path.</span></div>
+  </div>
+</section>
+{% endblock %}

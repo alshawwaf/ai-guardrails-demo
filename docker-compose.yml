@@ -1,5 +1,16 @@
-# Full production-ready environment with all services
-# Usage: docker compose -f docker-compose.production.yml up -d
+# Full stack: web + Redis + Redis Commander. docker-compose.prod.yml adds the
+# Nginx reverse proxy and a daily SQLite backup, and puts the app behind nginx.
+#
+#   docker compose up -d                                                   # web (port 9000) + Redis + Redis Commander
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d  # + Nginx (port 80) + backup (make prod)
+#
+# Settings come from .env in this folder (cp .env.example .env). A variable
+# listed without "=" below is passed through only when it is set in .env or in
+# your shell; otherwise the container does not get it at all.
+#
+# Gateway Mode (/gateway) keeps each user's management session in the memory of
+# ONE app process. The image runs "python app.py" (one process, threaded), which
+# is what Gateway Mode needs. Do not scale the web service beyond one replica.
 
 services:
   # Main application
@@ -20,13 +31,35 @@ services:
       - LOGS_DIR=${LOGS_DIR:-logs}
       - LOG_FILENAME=${LOG_FILENAME:-application.log}
       - HF_HOME=/app/models_cache
+      # Debug mode only with FLASK_DEBUG=1/true. Never on a shared host.
+      - FLASK_DEBUG=${FLASK_DEBUG:-0}
 
-      # API Keys (from .env)
+      # Sign-in and secrets at rest (see .env.example for how to generate them).
+      # Unset FLASK_SECRET_KEY / SETTINGS_ENCRYPTION_KEY: the app generates
+      # instance/.flask_secret and instance/.settings_key on the ./instance volume.
+      - FLASK_SECRET_KEY
+      - SETTINGS_ENCRYPTION_KEY
+      - DEFAULT_ADMIN_EMAIL
+      - DEFAULT_ADMIN_PASSWORD
+      - DEFAULT_ADMIN_PASSWORD_HASH
+      # true when users reach the app over HTTPS (for example nginx with TLS)
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
+      # Proxies whose X-Forwarded-For is trusted. 0 here: users reach port 9000
+      # directly. docker-compose.prod.yml sets 1 (nginx) and publishes the port
+      # on loopback only. Set it yourself only for your own proxy in front of
+      # this stack, and only if nothing else can reach the app port.
+      - TRUSTED_PROXY_HOPS=${TRUSTED_PROXY_HOPS:-0}
+
+      # API Keys (from .env; the Settings page overrides them)
+      - DEMO_API_KEY
+      - DEMO_PROJECT_ID
+      - DEMO_API_URL
       - LAKERA_API_KEY
       - LAKERA_PROJECT_ID
       - LAKERA_API_URL=${LAKERA_API_URL:-https://api.lakera.ai/v2/guard}
       - OPENAI_API_KEY
       - OPENAI_API_URL=${OPENAI_API_URL:-https://api.openai.com/v1/chat/completions}
+      - ANTHROPIC_API_KEY
       - AZURE_OPENAI_API_KEY
       - AZURE_OPENAI_ENDPOINT
       - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-gpt-4o-mini-2024-07-18}
@@ -44,16 +77,29 @@ services:
       - DEFAULT_LLM_PROVIDER=${DEFAULT_LLM_PROVIDER:-ollama}
       - DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL:-richardyoung/mythos-9b-unhinged-abliterated:latest}
 
-      # CORS
-      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      # CORS for /api/*: off unless explicit origins are listed ("*" is ignored)
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      # Optional public origin(s) for the same-origin check (see .env.example)
+      - APP_ORIGIN
 
       # Rate Limiting (using Redis)
       - RATE_LIMIT_DAILY=${RATE_LIMIT_DAILY:-1000000}
       - RATE_LIMIT_HOURLY=${RATE_LIMIT_HOURLY:-100000}
       - RATE_LIMIT_STORAGE=redis://redis:6379/0
 
-      # Gunicorn
+      # Gateway Mode: run logs, reports and rollback points (no secrets).
+      # A path inside the container; unset means /app/logs/aiguard (./logs/aiguard
+      # on the host through the ./logs volume below).
+      - AIGUARD_HOME
+      # The Docker host's IP as the gateway sees it (bridge networking hides the
+      # demo computer's address); used for the demo rule's scope and log matching.
+      - AIGUARD_LOCAL_IP
+
+      # Gunicorn: only used if scripts/start_production.sh is switched to gunicorn
+      # (the image runs "python app.py"). Gateway Mode needs ONE worker; use
+      # threads for concurrency (gunicorn -w 1 --threads 8).
       - GUNICORN_WORKERS=${GUNICORN_WORKERS:-1}
+      - GUNICORN_THREADS=${GUNICORN_THREADS:-8}
       - GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-600}
       - GUNICORN_BIND=0.0.0.0:${APP_PORT:-9000}
 
@@ -81,16 +127,24 @@ services:
 
     restart: unless-stopped
 
+    # docker stop: SIGTERM, then SIGKILL after the grace period. On SIGTERM Gateway
+    # Mode gives a running publish/install up to 8 s, then discards what is still
+    # unpublished and logs out of the management server; 15 s leaves room for that.
+    # init: a small init process as PID 1 forwards the signal and reaps children.
+    stop_grace_period: 15s
+    init: true
+
     labels:
       - "com.aiguardrails.demo=true"
       - "com.aiguardrails.service=web"
 
-  # Redis for distributed rate limiting
+  # Redis for distributed rate limiting. No password: published on this host's
+  # loopback only. Remove the 127.0.0.1 prefix only on a trusted network.
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       - redis-data:/data
     networks:
@@ -105,13 +159,14 @@ services:
       - "com.aiguardrails.demo=true"
       - "com.aiguardrails.service=redis"
 
-  # Redis Commander - Web UI for Redis
+  # Redis Commander - Web UI for Redis. It has no sign-in, so it is published on
+  # this host's loopback only (open http://localhost:8082 on the Docker host).
   redis-commander:
     image: rediscommander/redis-commander:latest
     environment:
       - REDIS_HOSTS=local:redis:6379
     ports:
-      - "8082:8081"
+      - "127.0.0.1:8082:8081"
     networks:
       - guardrails-network
     depends_on:
@@ -121,48 +176,7 @@ services:
       - "com.aiguardrails.demo=true"
       - "com.aiguardrails.service=redis-ui"
 
-  # Nginx reverse proxy (optional - for production)
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - web
-    networks:
-      - guardrails-network
-    restart: unless-stopped
-    labels:
-      - "com.aiguardrails.demo=true"
-      - "com.aiguardrails.service=nginx"
-    profiles:
-      - production
-
-  # Automated backup service
-  backup:
-    image: ghcr.io/alshawwaf/ai-guardrails-demo:latest
-    pull_policy: always
-    # build disabled: prebuilt + published by .github/workflows/publish-image.yml; uncomment to build locally.
-    # build: .
-    command: >
-      sh -c "while true; do
-        python scripts/backup_db.py;
-        sleep 86400;
-      done"
-    volumes:
-      - ./instance:/app/instance
-      - ./backups:/app/backups
-    networks:
-      - guardrails-network
-    restart: unless-stopped
-    labels:
-      - "com.aiguardrails.demo=true"
-      - "com.aiguardrails.service=backup"
-    profiles:
-      - production
+  # nginx and backup: see docker-compose.prod.yml.
 
 networks:
   guardrails-network:

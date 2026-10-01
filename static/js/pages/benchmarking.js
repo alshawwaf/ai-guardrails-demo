@@ -1,7 +1,17 @@
 import {
     createChart
 } from '../shared/charts.js';
-import { showNotification } from '../shared/utils.js';
+import { apiFetch, showNotification, escapeHtml } from '../shared/utils.js';
+
+// Escape, then shorten for table cells / tooltips (truncate before escaping so an
+// entity is never cut in half).
+function escTrunc(text, max = 50) {
+    const s = text == null ? '' : String(text);
+    return escapeHtml(s.length > max ? s.substring(0, max) + '...' : s);
+}
+
+// State-changing calls send a JSON body so they pass the server's same-origin/JSON checks.
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 // Configuration
 const POLL_INTERVAL = 1000; // 1 second
@@ -44,6 +54,13 @@ export function initBenchmarking() {
     runBtn.addEventListener('click', startBenchmark);
 
     // Close Modals
+    document.getElementById('toggle-error-details')?.addEventListener('click', (e) => {
+        const details = document.getElementById('error-details');
+        if (!details) return;
+        const hidden = details.classList.toggle('hidden');
+        e.currentTarget.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+    });
+
     document.getElementById('close-error-modal')?.addEventListener('click', () => {
         errorModal.classList.add('hidden');
     });
@@ -89,8 +106,9 @@ async function startBenchmark() {
 
     try {
         // Fetch settings and current toggles
-        const configResp = await fetch('/api/settings');
-        const config = await configResp.json();
+        const configResp = await apiFetch('/api/settings');
+        const config = (await configResp.json()) || {};
+        if (!configResp.ok) throw new Error(config.error || `Could not read the settings (HTTP ${configResp.status})`);
 
         const useAzure = document.getElementById('azure-toggle')?.checked ?? false;
         const useLLMGuard = document.getElementById('llmguard-toggle')?.checked ?? false;
@@ -101,7 +119,7 @@ async function startBenchmark() {
         const runScan = async (name, url, payloadKey, stepId) => {
             const start = Date.now();
             try {
-                const res = await fetch(url, {
+                const res = await apiFetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt: prompt })
@@ -143,7 +161,7 @@ async function startBenchmark() {
         showModalSummary();
 
         // Save consolidated log to DB
-        await fetch('/api/benchmark/log', {
+        await apiFetch('/api/benchmark/log', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -172,8 +190,13 @@ function resetProgressSteps(config, toggles = {}) {
         const status = step.querySelector('.step-status');
 
         // Check configuration and user toggles
-        const isConfigured = (key === 'guardrails' && config.DEMO_API_KEY) ||
-            (key === 'azure' && config.AZURE_CONTENT_SAFETY_KEY) ||
+        // /api/settings returns booleans only (never key values). A scan needs
+        // only the API key (no project ID: Lakera's default policy), and the
+        // benchmark always sends the AI Guardrails request.
+        const guardrailsKeySet = config.guardrails_key_configured ??
+            !!(config.masked && config.masked.DEMO_API_KEY);
+        const isConfigured = (key === 'guardrails' && !!guardrailsKeySet) ||
+            (key === 'azure' && !!config.azure_cs_configured) ||
             (key === 'llmguard'); // LLM Guard is local/built-in
 
         const isToggledOn = key === 'guardrails' || (key === 'azure' && toggles.useAzure) || (key === 'llmguard' && toggles.useLLMGuard);
@@ -224,7 +247,7 @@ function updateProgress(percent) {
 // function animateProgress removed
 
 function markStepResult(vendorKey, result) {
-    if (!result || result.error === "Missing API Key/Endpoint" || result.error?.includes("not configured")) {
+    if (!result || result.error === "Missing API Key/Endpoint" || (typeof result.error === 'string' && result.error.includes("not configured"))) {
         markStepStatus(vendorKey, 'Skipped', 'disabled');
         return;
     }
@@ -334,13 +357,15 @@ function addHistoryRow(item, prepend = false) {
     const results = item.results || item.result?.results || [];
 
     // Find vendor specific results
-    const guardrails = results.find(r => r.vendor.includes('AI Guardrails'));
-    const azure = results.find(r => r.vendor.includes('Azure'));
-    const llmguard = results.find(r => r.vendor.includes('LLM Guard'));
+    const vendorIs = (r, name) => r && typeof r.vendor === 'string' && r.vendor.includes(name);
+    const guardrails = results.find(r => vendorIs(r, 'AI Guardrails'));
+    const azure = results.find(r => vendorIs(r, 'Azure'));
+    const llmguard = results.find(r => vendorIs(r, 'LLM Guard'));
 
+    // Every interpolated value below is escaped; status cells are fixed markup.
     row.innerHTML = `
-        <td class="time-cell">${formatTimeAgo(item.timestamp)}</td>
-        <td class="prompt-cell" title="${escapeHtml(item.prompt)}">${escapeHtml(item.prompt)}</td>
+        <td class="time-cell">${escapeHtml(formatTimeAgo(item.timestamp))}</td>
+        <td class="prompt-cell" title="${escTrunc(item.prompt)}">${escTrunc(item.prompt)}</td>
         <td>${getStatusCell(guardrails)}</td>
         <td>${getStatusCell(azure)}</td>
         <td>${getStatusCell(llmguard)}</td>
@@ -373,12 +398,12 @@ function addHistoryRow(item, prepend = false) {
 }
 
 function getStatusCell(result) {
-    if (!result || result.error === "Missing API Key/Endpoint" || result.error?.includes("not configured")) {
+    if (!result || result.error === "Missing API Key/Endpoint" || (typeof result.error === 'string' && result.error.includes("not configured"))) {
         return `<span class="status-cell skipped">Skipped</span>`;
     }
 
     if (result.error) {
-        return `<span class="status-cell flagged" title="${escapeHtml(result.error)}">Error</span>`;
+        return `<span class="status-cell flagged" title="${escTrunc(result.error)}">Error</span>`;
     }
 
     if (result.flagged) {
@@ -399,8 +424,8 @@ function openDetailModal(item) {
     if (!modal || !promptEl || !gridEl) return;
 
     // Reset content
-    promptEl.textContent = item.prompt;
-    gridEl.innerHTML = '';
+    promptEl.textContent = item.prompt == null ? '' : String(item.prompt);
+    gridEl.replaceChildren();
 
     const results = item.results || item.result?.results || [];
 
@@ -414,7 +439,7 @@ function openDetailModal(item) {
         let statusText = res.flagged ? 'Risk Detected' : 'Passed & Safe';
 
         // Check for breakdown errors
-        const hasErrors = res.breakdown?.some(b => b.error);
+        const hasErrors = Array.isArray(res.breakdown) && res.breakdown.some(b => b && b.error);
         if (hasErrors && !res.flagged) {
             flaggedClass = 'error'; // We will style .vd-status-large.error
             statusText = 'Completed with Errors';
@@ -424,18 +449,18 @@ function openDetailModal(item) {
         let detailsHtml = '';
 
         // If we have a structured breakdown (LLM Guard), use table format
-        if (res.breakdown && res.breakdown.length > 0) {
+        if (Array.isArray(res.breakdown) && res.breakdown.length > 0) {
             const rows = res.breakdown.map(b => {
                 let rowClass = 'good';
                 let statusText = 'Pass';
-                let scoreText = Math.round(b.score * 100) + '%';
+                let scoreText = Math.round(Number(b.score) * 100) + '%';
                 let tooltip = '';
 
                 if (b.error) {
                     rowClass = 'error';
                     statusText = 'Error';
                     scoreText = '--';
-                    tooltip = escapeHtml(b.error);
+                    tooltip = escTrunc(b.error);
                 } else if (b.detected) {
                     rowClass = 'bad';
                     statusText = 'Flagged';
@@ -443,9 +468,9 @@ function openDetailModal(item) {
 
                 return `
                 <div class="breakdown-row ${rowClass}" title="${tooltip}">
-                    <span class="bd-type">${escapeHtml(b.detector_type)}</span>
-                    <span class="bd-model">${escapeHtml(b.model || 'default')}</span>
-                    <span class="bd-score">${scoreText}</span>
+                    <span class="bd-type">${escTrunc(b.detector_type)}</span>
+                    <span class="bd-model">${escTrunc(b.model || 'default')}</span>
+                    <span class="bd-score">${escapeHtml(scoreText)}</span>
                     <span class="bd-status">${statusText}</span>
                 </div>
                 `;
@@ -462,18 +487,20 @@ function openDetailModal(item) {
                     ${rows}
                 </div>
             `;
-        } else if (res.details && res.details.length > 0) {
-            detailsHtml = res.details.map(d => `<span class="vd-badge">${escapeHtml(d)}</span>`).join('');
+        } else if (Array.isArray(res.details) && res.details.length > 0) {
+            detailsHtml = res.details.map(d => `<span class="vd-badge">${escTrunc(d)}</span>`).join('');
         }
 
         // JSON Dump
         const jsonId = `json-${Math.random().toString(36).substr(2, 9)}`;
 
+        // Vendor, time and raw JSON are data: escaped here (the raw JSON body is
+        // also filled with textContent below). detailsHtml is built escaped above.
         card.innerHTML = `
             <div class="vd-header">
                 <div class="vd-vendor-info">
-                    <span class="vd-vendor-name">${res.vendor}</span>
-                    <span class="vd-time">⏱ ${timeStr}</span>
+                    <span class="vd-vendor-name">${escapeHtml(res.vendor)}</span>
+                    <span class="vd-time">⏱ ${escapeHtml(timeStr)}</span>
                 </div>
                 <span class="vd-status-large ${flaggedClass}">
                     ${statusText}
@@ -485,7 +512,7 @@ function openDetailModal(item) {
             </div>
 
             <div class="vd-json-section">
-                <button class="toggle-reports-btn" onclick="toggleJsonDetail('${jsonId}')">
+                <button class="toggle-reports-btn" type="button">
                     <span>View Raw JSON Response</span>
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="6 9 12 15 18 9"></polyline>
@@ -493,11 +520,16 @@ function openDetailModal(item) {
                 </button>
                  <div id="${jsonId}-json" class="raw-reports-content hidden">
                     <div class="raw-report-item">
-                        <div class="raw-report-body">${JSON.stringify(res.raw_response || res, null, 2)}</div>
+                        <div class="raw-report-body"></div>
                     </div>
                 </div>
             </div>
         `;
+
+        card.querySelector('.raw-report-body').textContent = JSON.stringify(res.raw_response || res, null, 2);
+        card.querySelector('.toggle-reports-btn').addEventListener('click', () => {
+            window.toggleJsonDetail(jsonId);
+        });
 
         gridEl.appendChild(card);
     });
@@ -538,7 +570,7 @@ function showError(msg) {
 
 async function fetchHistory() {
     try {
-        const response = await fetch('/api/benchmark/history');
+        const response = await apiFetch('/api/benchmark/history');
         if (response.ok) {
             const history = await response.json();
             renderHistoryTable(history);
@@ -615,16 +647,6 @@ function updateHeroStats(history) {
     statTime.textContent = avgTime;
 }
 
-function escapeHtml(text) {
-    if (!text) return '';
-    return text.replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;")
-        .substring(0, 50) + (text.length > 50 ? '...' : '');
-}
-
 function formatTimeAgo(timestampStr) {
     const date = new Date(timestampStr);
     const now = new Date();
@@ -678,9 +700,7 @@ function setupModelManager() {
 
     if (saveBtn) saveBtn.addEventListener('click', () => {
         modal.classList.add('hidden');
-        if (window.showNotification) {
-            window.showNotification('Settings saved successfully', 'success');
-        }
+        showNotification('Settings saved successfully', 'success');
     });
 
     // Click outside to close
@@ -696,8 +716,9 @@ async function loadModels() {
     container.innerHTML = '<div class="loading-models">Loading...</div>';
 
     try {
-        const resp = await fetch('/api/models/status');
+        const resp = await apiFetch('/api/models/status');
         const models = await resp.json();
+        if (!resp.ok || !Array.isArray(models)) throw new Error('Unexpected models response');
         renderModels(models);
     } catch (e) {
         container.innerHTML = '<div class="error">Failed to load models</div>';
@@ -749,25 +770,26 @@ function renderModels(models) {
             itemEl.className = 'mm-model-item';
             const isSelected = model.active;
 
+            // Server data (name, size, description, id) is escaped.
             itemEl.innerHTML = `
                 <div class="mm-model-info">
                     <div class="mm-model-name">
-                        ${model.name}
-                        ${model.size ? `<span class="mm-model-size">${model.size}</span>` : ''}
+                        ${escapeHtml(model.name)}
+                        ${model.size ? `<span class="mm-model-size">${escapeHtml(model.size)}</span>` : ''}
                     </div>
-                    <div class="mm-model-desc">${model.description}</div>
+                    <div class="mm-model-desc">${escapeHtml(model.description)}</div>
                 </div>
                 <div class="mm-model-actions">
                     ${model.downloaded ? `
                         <label class="mm-toggle" title="${isSelected ? 'Disable' : 'Enable'} model">
                             <input type="checkbox" class="model-toggle" 
-                                data-id="${model.id}" 
-                                data-parent="${model.parent_key || (key === 'PromptInjection' ? 'PromptInjection' : '')}"
+                                data-id="${escapeHtml(model.id)}" 
+                                data-parent="${escapeHtml(model.parent_key || (key === 'PromptInjection' ? 'PromptInjection' : ''))}"
                                 ${isSelected ? 'checked' : ''}>
                             <span class="mm-slider"></span>
                         </label>
                     ` : `
-                        <button class="mm-model-btn download" data-id="${model.id}">Download</button>
+                        <button class="mm-model-btn download" data-id="${escapeHtml(model.id)}">Download</button>
                     `}
                 </div>
             `;
@@ -805,7 +827,7 @@ function renderModels(models) {
 
 async function toggleModel(id, enabled) {
     try {
-        const response = await fetch('/api/models/toggle', {
+        const response = await apiFetch('/api/models/toggle', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, enabled })
@@ -837,7 +859,7 @@ async function downloadModel(id, btn) {
     btn.textContent = 'Downloading...';
 
     try {
-        const response = await fetch('/api/models/download', {
+        const response = await apiFetch('/api/models/download', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id })
@@ -875,13 +897,13 @@ function setupClearStats() {
     const handleClear = async () => {
         hideConfirm();
         try {
-            const response = await fetch('/api/benchmark/clear', {
-                method: 'POST'
+            const response = await apiFetch('/api/benchmark/clear', {
+                method: 'POST',
+                headers: JSON_HEADERS,
+                body: '{}'
             });
             if (response.ok) {
-                if (window.showNotification) {
-                    window.showNotification('Benchmark history cleared', 'success');
-                }
+                showNotification('Benchmark history cleared', 'success');
                 // Wait a tiny bit for DB to settle
                 setTimeout(() => {
                     if (typeof fetchHistory === 'function') {
@@ -891,9 +913,7 @@ function setupClearStats() {
             } else {
                 const errData = await response.json().catch(() => ({}));
                 console.error('Clear failed:', errData);
-                if (window.showNotification) {
-                    window.showNotification('Failed to clear history', 'error');
-                }
+                showNotification('Failed to clear history', 'error');
             }
         } catch (e) {
             console.error('Clear error:', e);

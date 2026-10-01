@@ -19,3 +19,12 @@ build/
 temp/
 tmp/
 models_cache/
+.pytest_cache/
+**/.aiguard/
+# Keys and certificates never go into the image (nginx/ssl holds the TLS key;
+# CA files for Gateway Mode are uploaded at run time, not baked in).
+nginx/ssl/
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx

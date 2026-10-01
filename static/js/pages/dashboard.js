@@ -1,6 +1,10 @@
 // ============================================
 // Dashboard Page Module
+// Feed items come from stored logs (attacker-controllable): rendered with
+// textContent / DOM only; badge colours come from the fixed palette.
 // ============================================
+
+import { apiFetch, createDetectorBadge, getAttackColor, getDetectorLabel } from "../shared/utils.js";
 
 /**
  * Initialize dashboard page
@@ -35,10 +39,13 @@ export function initDashboard() {
   async function loadAnalytics() {
     try {
       const range = timelineRange ? timelineRange.value : "24h";
-      const response = await fetch(`/api/analytics?range=${range}`);
+      // apiFetch sends the browser to /login when the session has ended (401).
+      const response = await apiFetch(`/api/analytics?range=${encodeURIComponent(range)}`);
       const data = await response.json();
-
-      console.log("Analytics data loaded:", data);
+      if (!response.ok || !data || typeof data !== "object") {
+        // Keep what is on screen; never render an error body as statistics.
+        throw new Error((data && data.error) || `Analytics request failed (HTTP ${response.status})`);
+      }
 
       // Update stats and feed first (critical info)
       try {
@@ -69,21 +76,17 @@ export function initDashboard() {
   }
 
   function updateStats(data) {
-    console.log(
-      "Updating stats:",
-      data.total_scans,
-      data.threats_blocked,
-      data.success_rate
-    );
-
+    const num = (v) => (Number.isFinite(Number(v)) ? String(v) : "–");
     const totalScansEl = document.getElementById("total-scans");
-    if (totalScansEl) totalScansEl.textContent = data.total_scans;
+    if (totalScansEl) totalScansEl.textContent = num(data.total_scans);
 
     const threatsBlockedEl = document.getElementById("threats-blocked");
-    if (threatsBlockedEl) threatsBlockedEl.textContent = data.threats_blocked;
+    if (threatsBlockedEl) threatsBlockedEl.textContent = num(data.threats_blocked);
 
     const successRate = document.getElementById("success-rate");
-    if (successRate) successRate.textContent = `${data.success_rate}%`;
+    if (successRate) {
+      successRate.textContent = Number.isFinite(Number(data.success_rate)) ? `${data.success_rate}%` : "–";
+    }
   }
 
   function updateCharts(data) {
@@ -95,16 +98,16 @@ export function initDashboard() {
       const threatValues = Object.values(data.threat_distribution || {});
 
       // Generate colors based on attack type
-      const threatColors = threatLabels.map((label) =>
-        window.getAttackColor(label)
-      );
+      const threatColors = threatLabels.map((label) => getAttackColor(label));
+      // Chart.js draws on canvas (no HTML); show friendly detector labels.
+      const threatDisplayLabels = threatLabels.map((label) => getDetectorLabel(label));
 
       if (window.threatChartInstance) window.threatChartInstance.destroy();
 
       window.threatChartInstance = new Chart(ctx, {
         type: "bar",
         data: {
-          labels: threatLabels.length > 0 ? threatLabels : ["No Data"],
+          labels: threatLabels.length > 0 ? threatDisplayLabels : ["No Data"],
           datasets: [
             {
               label: "Threats",
@@ -169,8 +172,9 @@ export function initDashboard() {
     const ctxTimeline = document.getElementById("timelineChart");
     if (ctxTimeline) {
       const ctx = ctxTimeline.getContext("2d");
-      const timelineLabels = Object.keys(data.timeline).sort();
-      const timelineValues = timelineLabels.map((k) => data.timeline[k]);
+      const timeline = data.timeline || {};
+      const timelineLabels = Object.keys(timeline).sort();
+      const timelineValues = timelineLabels.map((k) => timeline[k]);
 
       if (timelineChartInstance) timelineChartInstance.destroy();
 
@@ -231,17 +235,33 @@ export function initDashboard() {
   function updateFeed(logs) {
     const feedList = document.getElementById("feed-list");
     if (!feedList) return;
-    feedList.innerHTML = "";
+    feedList.replaceChildren();
 
-    if (logs.length === 0) {
-      feedList.innerHTML =
-        '<p style="color: var(--text-secondary); padding: 2rem; text-align: center;">No recent activity</p>';
+    if (!Array.isArray(logs) || logs.length === 0) {
+      const empty = document.createElement("p");
+      empty.style.color = "var(--text-secondary)";
+      empty.style.padding = "2rem";
+      empty.style.textAlign = "center";
+      empty.textContent = "No recent activity";
+      feedList.appendChild(empty);
       return;
     }
 
+    const div = (cls, text) => {
+      const d = document.createElement("div");
+      if (cls) d.className = cls;
+      if (text !== undefined) d.textContent = text;
+      return d;
+    };
+    const span = (cls, text) => {
+      const sp = document.createElement("span");
+      if (cls) sp.className = cls;
+      sp.textContent = text;
+      return sp;
+    };
+
     logs.forEach((log) => {
-      const item = document.createElement("div");
-      item.className = "feed-item";
+      const item = div("feed-item");
 
       // Make clickable
       item.style.cursor = "pointer";
@@ -249,44 +269,42 @@ export function initDashboard() {
         window.location.href = "/logs";
       });
 
-      const isFlagged = log.result?.flagged || false;
-      const statusClass = isFlagged ? "status-danger" : "status-safe";
-      const statusIcon = isFlagged ? "⚠️" : "✅";
+      // A failed scan (fail-closed: the prompt never reached the model) is an
+      // error, never "Safe" (same rule as the Logs page).
+      const isError = !!(log.error || log.result?.guardrails_error);
+      const isFlagged = !isError && (log.result?.flagged || false);
+      const statusClass = isFlagged || isError ? "status-danger" : "status-safe";
+      const statusIcon = isFlagged || isError ? "⚠️" : "✅";
 
-      // Create attack vector badges
-      let attackBadgesHtml = "";
-      if (log.attack_vectors && log.attack_vectors.length > 0) {
-        attackBadgesHtml =
-          '<div class="feed-vectors">' +
-          log.attack_vectors
-            .map((v) => {
-              const color = window.getAttackColor(v);
-              return `<span class="vector-badge" style="background: ${color}20; border-color: ${color}; color: ${color};">${v}</span>`;
-            })
-            .join(" ") +
-          "</div>";
+      const prompt = log.prompt == null ? "" : String(log.prompt);
+      const promptPreview =
+        prompt.length > 80
+          ? prompt.substring(0, 80) + "..."
+          : prompt;
+
+      const content = div("feed-content");
+      content.appendChild(div("feed-prompt", promptPreview));
+
+      // Attack vector badges
+      if (Array.isArray(log.attack_vectors) && log.attack_vectors.length > 0) {
+        const vectors = div("feed-vectors");
+        log.attack_vectors.forEach((v, i) => {
+          if (i > 0) vectors.appendChild(document.createTextNode(" "));
+          vectors.appendChild(createDetectorBadge(v, "vector-badge"));
+        });
+        content.appendChild(vectors);
       }
 
-      const promptPreview =
-        log.prompt.length > 80
-          ? log.prompt.substring(0, 80) + "..."
-          : log.prompt;
+      const meta = div("feed-meta");
+      meta.appendChild(span("", log.timestamp == null ? "" : String(log.timestamp)));
+      meta.appendChild(isError
+        ? span("feed-badge", "Scan failed")
+        : isFlagged
+          ? span("feed-badge", "Threat Detected")
+          : span("feed-badge-safe", "Safe"));
+      content.appendChild(meta);
 
-      item.innerHTML = `
-            <div class="feed-icon ${statusClass}">${statusIcon}</div>
-            <div class="feed-content">
-                <div class="feed-prompt">${promptPreview}</div>
-                ${attackBadgesHtml}
-                <div class="feed-meta">
-                    <span>${log.timestamp}</span>
-                    ${
-                      isFlagged
-                        ? '<span class="feed-badge">Threat Detected</span>'
-                        : '<span class="feed-badge-safe">Safe</span>'
-                    }
-                </div>
-            </div>
-        `;
+      item.append(div(`feed-icon ${statusClass}`, statusIcon), content);
       feedList.appendChild(item);
     });
   }

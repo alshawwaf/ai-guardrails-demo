@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+{#- Gateway Mode shell: step sidebar + page body. No secret is ever rendered here;
+    dynamic values are filled by static/js/pages/gateway.js with textContent. -#}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/gateway.css') }}?v=2" />
+<div class="gateway-page" data-step="{{ gw_step }}"
+     data-api="{{ url_for('gateway.index') }}api/"
+     data-login="{{ url_for('login') }}"
+     data-idle-minutes="{{ gw_idle_minutes }}">
+  <aside class="gw-side" aria-label="Gateway Mode">
+    <div class="gw-brand">
+      <span class="gw-brand-title">AI Guard Demo Kit</span>
+      <span class="gw-brand-sub">Check Point AI Agent Security</span>
+    </div>
+    <nav class="gw-steps" aria-label="Demo steps">
+      {% for id, title in gw_steps %}
+      <a href="{{ url_for('gateway.' ~ id) }}"
+         class="gw-step{% if id == gw_step %} current{% endif %}"
+         data-step-link="{{ id }}"{% if id == gw_step %} aria-current="page"{% endif %}>
+        <span class="gw-step-no" aria-hidden="true">{{ loop.index }}</span>
+        <span class="gw-step-name">{{ title }}</span>
+        <span class="gw-step-state" data-step-state="{{ id }}"></span>
+      </a>
+      {% endfor %}
+    </nav>
+    <div class="gw-side-box" data-gw="side-conn">
+      <span class="gw-eyebrow">Connection</span>
+      <span class="gw-side-value" data-gw="side-conn-text">Not connected</span>
+    </div>
+    <div class="gw-side-box">
+      <span class="gw-eyebrow">Log file</span>
+      <span class="gw-mono gw-side-value gw-break" data-gw="log-path">Created when you connect</span>
+      <a href="{{ url_for('gateway.diagnostics') }}" class="gw-side-link">Open log</a>
+    </div>
+  </aside>
+  <section class="gw-main">
+    <noscript>
+      <div class="gw-card gw-callout warn">Gateway Mode needs JavaScript enabled in this browser.</div>
+    </noscript>
+    {% block gw_main %}{% endblock %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+# Packaging for the AI Guard Demo Kit command line only (the `aiguard` package).
+# The Flask app in this repository is not packaged; run it as before (app.py / Docker).
+#
+#   pip install .        ->  `aiguard` on PATH (same as `python -m aiguard`)
+#
+# The kit is stdlib-only: no runtime dependencies.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aiguard-demo-kit"
+dynamic = ["version"]
+description = "AI Guard Demo Kit: set up and demonstrate Check Point AI Agent Security on a gateway"
+requires-python = ">=3.8"
+dependencies = []
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+]
+
+[project.scripts]
+aiguard = "aiguard.cli:main"
+
+[tool.setuptools]
+packages = ["aiguard", "aiguard.templates"]
+include-package-data = false
+
+[tool.setuptools.package-data]
+"aiguard.templates" = ["*.json"]
+
+[tool.setuptools.dynamic]
+version = {attr = "aiguard.__version__"}

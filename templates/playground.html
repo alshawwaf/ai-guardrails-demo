@@ -1,4 +1,5 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %}
+{% block head_scripts %}{% include "_chartjs.html" %}{% endblock %} {% block content %}
 
 <div class="playground-container">
     <!-- Left Panel: Free-form Input -->
@@ -179,19 +180,17 @@
     </div>
 </div>
 
-<script>
-    window.llmData = {
-        openai: {{ available_models | tojson }},
-    azure: {
-        deployment: "{{ azure_deployment }}"
+{#- Page data as a JSON data block (not executed; read by pages/playground.js),
+    so the page needs no inline script under the CSP. -#}
+<script type="application/json" id="playground-data">{{ {
+    "llmData": {
+        "openai": available_models,
+        "azure": {"deployment": azure_deployment},
+        "gemini": gemini_models,
+        "anthropic": anthropic_models,
+        "ollama": ollama_models
     },
-    gemini: {{ gemini_models | tojson }},
-    anthropic: {{ anthropic_models | tojson }},
-    ollama: {{ ollama_models | tojson }}
-    };
-    // Server-pinned default provider/model (used only when the browser has no
-    // saved preference). Configurable via DEFAULT_LLM_PROVIDER / DEFAULT_LLM_MODEL.
-    window.defaultProvider = {{ default_provider | tojson }};
-    window.defaultModel = {{ default_model | tojson }};
-</script>
+    "defaultProvider": default_provider,
+    "defaultModel": default_model
+} | tojson }}</script>
 {% endblock %}

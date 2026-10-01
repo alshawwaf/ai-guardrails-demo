@@ -1,4 +1,15 @@
-version: '3.8'
+# Lightweight development stack: builds the image from this folder and runs
+# gunicorn with live reload. All settings come from .env (cp .env.example .env).
+#
+#   docker compose -f docker-compose-dev.yml up -d --build
+#
+# Gateway Mode keeps each user's management session in the memory of one
+# process, so gunicorn runs ONE worker with threads. A code change reloads the
+# worker and ends open Gateway Mode sessions (rollback points are kept on disk).
+
+# Own project name, so this stack never replaces or stops the containers of
+# docker-compose.yml (both define a "web" service).
+name: ai-guardrails-demo-dev
 
 services:
   web:
@@ -6,13 +17,17 @@ services:
     ports:
       - "${APP_PORT:-9000}:${APP_PORT:-9000}"
     env_file:
-      - .env
+      - path: .env
+        required: false
     volumes:
       - .:/app
       - ./instance:/app/instance
       - ./logs:/app/logs
       - ./data:/app/data
-    command: gunicorn -w 2 -b 0.0.0.0:9000 --reload app:app
+    command: >
+      gunicorn -w 1 --threads ${GUNICORN_THREADS:-8}
+      -b 0.0.0.0:${APP_PORT:-9000} --timeout ${GUNICORN_TIMEOUT:-300}
+      --reload app:app
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:${APP_PORT:-9000}/health" ]
@@ -22,3 +37,4 @@ services:
       start_period: 40s
     environment:
       - PYTHONUNBUFFERED=1
+      - APP_PORT=${APP_PORT:-9000}

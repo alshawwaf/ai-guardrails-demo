@@ -6,7 +6,8 @@
 
 
 # Set defaults if not provided
-GUNICORN_WORKERS=${GUNICORN_WORKERS:-4}
+# One worker: Gateway Mode keeps sessions in the memory of one process.
+GUNICORN_WORKERS=${GUNICORN_WORKERS:-1}
 GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-300}
 GUNICORN_BIND=${GUNICORN_BIND:-0.0.0.0:9000}
 

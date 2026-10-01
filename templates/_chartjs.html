@@ -1,0 +1,5 @@
+{#- Chart.js for the pages that draw charts (playground, dashboard, benchmarking).
+    app.chartjs_src() serves static/vendor/chart.umd.js when that file exists,
+    else one pinned jsDelivr file; the page's CSP allows exactly that source.
+    Never include this on pages where keys or passwords are typed. -#}
+<script src="{{ chartjs_src() }}" crossorigin="anonymous" referrerpolicy="no-referrer"></script>

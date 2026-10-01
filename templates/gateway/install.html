@@ -1,0 +1,54 @@
+{% extends "gateway/_layout.html" %}
+{% block gw_main %}
+<header class="gw-hero">
+  <div class="gw-hero-text">
+    <span class="hero-badge">Step {{ gw_step_no }} of {{ gw_step_total }}</span>
+    <h1>Approve and install</h1>
+    <p>Review every change. Nothing is written until you type APPROVE. If a step fails, AI Guard stops, shows the server's exact message and offers a rollback.</p>
+  </div>
+  <span class="gw-pill neutral gw-mono" data-gw="plan-id-pill" hidden></span>
+</header>
+
+<div data-gw="inst-notice"></div>
+
+<div class="gw-grid gw-grid-main-side">
+  <div class="gw-stack">
+    <section class="gw-card" aria-labelledby="gw-inst-changes-title">
+      <h2 class="gw-h2" id="gw-inst-changes-title">What will change</h2>
+      <div data-gw="inst-plan"><p class="gw-muted">Loading the plan...</p></div>
+      <div data-gw="inst-warnings"></div>
+    </section>
+
+    <section class="gw-card gw-approval-card" aria-labelledby="gw-inst-approval-title">
+      <h2 class="gw-h2" id="gw-inst-approval-title">Your approval</h2>
+      <div data-gw="inst-approval"></div>
+    </section>
+  </div>
+
+  <section class="gw-card" aria-labelledby="gw-inst-progress-title">
+    <div class="gw-card-head">
+      <h2 class="gw-h2 gw-grow" id="gw-inst-progress-title">Progress</h2>
+      <span class="gw-muted gw-mono" data-gw="inst-elapsed"></span>
+    </div>
+    <div class="progress-bar-bg" data-gw="inst-bar-wrap" hidden><div class="progress-bar-fill" data-gw="inst-bar" style="width:0%"></div></div>
+    <ol class="gw-steplist" data-gw="inst-steps"><li class="gw-muted">Waiting for your approval.</li></ol>
+    <div data-gw="inst-result"></div>
+    <div data-gw="inst-error"></div>
+    <div class="gw-actions">
+      <a class="btn-gradient gw-btn-link is-disabled" id="gw-inst-demo" href="{{ url_for('gateway.demo') }}" aria-disabled="true">Start the demo</a>
+      <a class="secondary-btn gw-btn-link" href="{{ url_for('gateway.configure') }}">Back to Configure</a>
+    </div>
+  </section>
+</div>
+
+<section class="gw-card" data-gw="rb-card" hidden aria-labelledby="gw-inst-rb-title">
+  <div class="gw-card-head">
+    <h2 class="gw-h2 gw-grow" id="gw-inst-rb-title">Rollback points on this server</h2>
+    <label class="gw-check"><input type="checkbox" id="gw-rb-install" checked> Install policy after rollback</label>
+  </div>
+  <p class="gw-muted">A rollback deletes the objects AI Guard created (and turns content moderation off again if it was turned on), publishes, and installs Threat Prevention policy.</p>
+  <div data-gw="rb-list"></div>
+  <div data-gw="rb-progress"></div>
+  <div data-gw="rb-error"></div>
+</section>
+{% endblock %}

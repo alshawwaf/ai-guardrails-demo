@@ -14,3 +14,5 @@ azure-core
 llm-guard
 numpy<2
 sentencepiece
+# AES-256-GCM encryption of saved API keys (secure_settings.py). License: Apache-2.0 OR BSD-3-Clause
+cryptography

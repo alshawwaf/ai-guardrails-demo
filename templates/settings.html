@@ -1,19 +1,55 @@
 {% extends "base.html" %} {% block content %}
 
+{#- Secret inputs are write-only: the saved value is never rendered. The page
+    only shows a masked hint (****abcd) taken from secret_setting_status(). -#}
+{% macro secret_input(field, label, empty_placeholder="", help="") -%}
+  {%- set s = secrets[field] -%}
+  <div class="input-group">
+    <label for="{{ field }}" class="input-label">{{ label }}</label>
+    <input type="password" id="{{ field }}" name="{{ field }}" value="" class="input-field"
+           autocomplete="new-password" spellcheck="false"
+           placeholder="{% if s.source == 'saved' %}Saved ({{ s.masked }}). Leave blank to keep.{% elif s.source == 'env' %}Set in the server environment ({{ s.masked }}). Leave blank to keep.{% else %}{{ empty_placeholder }}{% endif %}">
+    {% if s.source == 'saved' %}
+    <label class="input-help" for="clear_{{ field }}" style="display:flex;align-items:center;gap:.45rem;cursor:pointer;">
+      <input type="checkbox" id="clear_{{ field }}" name="clear_{{ field }}" value="1">
+      Clear the saved key (the environment value, if any, applies again)
+    </label>
+    {% endif %}
+    {% if help %}<p class="input-help">{{ help }}</p>{% endif %}
+  </div>
+{%- endmacro %}
+
 <div class="settings-page">
   {% if success %}
   <div class="alert success" style="margin-bottom: 1.5rem; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #16a34a; padding: 1rem; border-radius: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
     <span style="font-size: 1.2rem">✓</span> Settings saved successfully
   </div>
   {% endif %}
+  {% if errors %}
+  <div class="alert error" role="alert" style="margin-bottom: 1.5rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--danger-color); padding: 1rem; border-radius: 0.75rem;">
+    <strong>Nothing was saved.</strong>
+    <ul style="margin: .5rem 0 0 1.1rem;">
+      {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if warnings %}
+  <div class="alert warning" role="status" style="margin-bottom: 1.5rem; background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.35); color: #ea580c; padding: 1rem; border-radius: 0.75rem;">
+    <strong>Check these settings.</strong>
+    <ul style="margin: .5rem 0 0 1.1rem;">
+      {% for warning in warnings %}<li>{{ warning }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 
   <div class="settings-hero">
     <div class="hero-badge">Model &amp; Vendor Keys</div>
     <h1>Configuration</h1>
-    <p>Pick a provider on the left to edit its keys. Everything is stored encrypted on this host.</p>
+    <p>Pick a provider on the left to edit its keys. API keys are encrypted at rest on this host (AES-256-GCM) and are never shown again after you save them.</p>
   </div>
 
-  <form method="POST" action="{{ url_for('settings') }}" class="settings-form">
+  <form method="POST" action="{{ url_for('settings') }}" class="settings-form" autocomplete="off">
     <div class="sp-2pane">
       <!-- Providers sidebar -->
       <aside class="sp-sidebar">
@@ -22,43 +58,43 @@
         <button type="button" class="sp-item active" data-pane="guardrails">
           <span class="sp-ic brand"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></span>
           <span class="sp-name">AI Guardrails</span>
-          <span class="sp-dot {{ 'set' if api_key else 'unset' }}"></span>
+          <span class="sp-dot {{ 'set' if secrets.api_key.configured else 'unset' }}"></span>
         </button>
 
         <button type="button" class="sp-item" data-pane="openai">
           <span class="sp-ic"><svg viewBox="0 0 24 24" fill="currentColor" style="color:#10a37f"><path d="M22.28 12.18a5.9 5.9 0 00-.5-4.84 5.96 5.96 0 00-6.42-2.86A5.96 5.96 0 004.5 6.4a5.9 5.9 0 00-3.94 2.86 5.96 5.96 0 00.73 6.99 5.9 5.9 0 00.5 4.85 5.96 5.96 0 006.42 2.86 5.9 5.9 0 004.44 1.98 5.96 5.96 0 005.68-4.12 5.9 5.9 0 003.94-2.86 5.96 5.96 0 00-.72-6.98zM12 21.6a4.42 4.42 0 01-2.84-1.03l3.5-2.02a.58.58 0 00.29-.5v-4.94l1.48.86v3.98A4.44 4.44 0 0112 21.6z"></path></svg></span>
           <span class="sp-name">OpenAI</span>
-          <span class="sp-dot {{ 'set' if openai_api_key else 'unset' }}"></span>
+          <span class="sp-dot {{ 'set' if secrets.openai_api_key.configured else 'unset' }}"></span>
         </button>
 
         <button type="button" class="sp-item" data-pane="azure-openai">
           <span class="sp-ic"><img src="/static/azure-openai.png" alt="Azure OpenAI"></span>
           <span class="sp-name">Azure OpenAI</span>
-          <span class="sp-dot {{ 'set' if azure_openai_api_key else 'unset' }}"></span>
+          <span class="sp-dot {{ 'set' if secrets.azure_openai_api_key.configured else 'unset' }}"></span>
         </button>
 
         <button type="button" class="sp-item" data-pane="gemini">
           <span class="sp-ic"><img src="/static/gemini-logo.png" alt="Gemini"></span>
           <span class="sp-name">Google Gemini</span>
-          <span class="sp-dot {{ 'set' if gemini_api_key else 'unset' }}"></span>
+          <span class="sp-dot {{ 'set' if secrets.gemini_api_key.configured else 'unset' }}"></span>
         </button>
 
         <button type="button" class="sp-item" data-pane="anthropic">
           <span class="sp-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.3L20 10.5l-5.8 2.2L12 19l-2.2-6.3L4 10.5l5.8-2.2z"></path></svg></span>
           <span class="sp-name">Anthropic (Claude)</span>
-          <span class="sp-dot {{ 'set' if anthropic_api_key else 'unset' }}"></span>
+          <span class="sp-dot {{ 'set' if secrets.anthropic_api_key.configured else 'unset' }}"></span>
         </button>
 
         <button type="button" class="sp-item" data-pane="ollama">
           <span class="sp-ic brand"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z"></path></svg></span>
           <span class="sp-name">Ollama (Local)</span>
-          <span class="sp-dot {{ 'set' if ollama_api_url else 'unset' }}"></span>
+          <span class="sp-dot {{ 'set' if values.ollama_api_url else 'unset' }}"></span>
         </button>
 
         <button type="button" class="sp-item" data-pane="azure-cs">
           <span class="sp-ic"><img src="/static/azure-openai.png" alt="Azure"></span>
           <span class="sp-name">Azure Content Safety</span>
-          <span class="sp-dot {{ 'set' if azure_cs_key else 'unset' }}"></span>
+          <span class="sp-dot {{ 'set' if secrets.azure_cs_key.configured else 'unset' }}"></span>
         </button>
       </aside>
 
@@ -69,16 +105,12 @@
           <div class="sp-pane-head">
             <span class="sp-ic brand"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></span>
             <div><h3>AI Guardrails Playground</h3><p>Check Point · Prompt &amp; response scanning</p></div>
-            <span class="status-pill {{ 'set' if api_key else 'unset' }}">{{ 'Configured' if api_key else 'Not set' }}</span>
+            <span class="status-pill {{ 'set' if secrets.api_key.configured else 'unset' }}">{{ 'Configured' if secrets.api_key.configured else 'Not set' }}</span>
           </div>
-          <div class="input-group">
-            <label for="api_key" class="input-label">AI Guardrails API Key</label>
-            <input type="password" id="api_key" name="api_key" value="{{ api_key }}" class="input-field" placeholder="Enter your API Key">
-            <p class="input-help">Stored securely in the local database.</p>
-          </div>
+          {{ secret_input("api_key", "AI Guardrails API Key", "Enter your API Key", "Encrypted at rest in the local database.") }}
           <div class="input-group">
             <label for="project_id" class="input-label">Project ID</label>
-            <input type="text" id="project_id" name="project_id" value="{{ project_id }}" class="input-field" placeholder="Enter your Project ID">
+            <input type="text" id="project_id" name="project_id" value="{{ values.project_id }}" class="input-field" placeholder="Enter your Project ID">
           </div>
         </div>
 
@@ -87,12 +119,9 @@
           <div class="sp-pane-head">
             <span class="sp-ic"><svg viewBox="0 0 24 24" fill="currentColor" style="color:#10a37f"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 14.4a4.4 4.4 0 110-8.8 4.4 4.4 0 010 8.8z"></path></svg></span>
             <div><h3>OpenAI</h3><p>Cloud · GPT models</p></div>
-            <span class="status-pill {{ 'set' if openai_api_key else 'unset' }}">{{ 'Configured' if openai_api_key else 'Not set' }}</span>
+            <span class="status-pill {{ 'set' if secrets.openai_api_key.configured else 'unset' }}">{{ 'Configured' if secrets.openai_api_key.configured else 'Not set' }}</span>
           </div>
-          <div class="input-group">
-            <label for="openai_api_key" class="input-label">API Key</label>
-            <input type="password" id="openai_api_key" name="openai_api_key" value="{{ openai_api_key }}" class="input-field" placeholder="sk-...">
-          </div>
+          {{ secret_input("openai_api_key", "API Key", "sk-...") }}
         </div>
 
         <!-- Azure OpenAI -->
@@ -100,19 +129,17 @@
           <div class="sp-pane-head">
             <span class="sp-ic"><img src="/static/azure-openai.png" alt="Azure OpenAI"></span>
             <div><h3>Azure OpenAI</h3><p>Cloud · Managed GPT deployment</p></div>
-            <span class="status-pill {{ 'set' if azure_openai_api_key else 'unset' }}">{{ 'Configured' if azure_openai_api_key else 'Not set' }}</span>
+            <span class="status-pill {{ 'set' if secrets.azure_openai_api_key.configured else 'unset' }}">{{ 'Configured' if secrets.azure_openai_api_key.configured else 'Not set' }}</span>
           </div>
-          <div class="input-group">
-            <label for="azure_openai_api_key" class="input-label">API Key</label>
-            <input type="password" id="azure_openai_api_key" name="azure_openai_api_key" value="{{ azure_openai_api_key }}" class="input-field">
-          </div>
+          {{ secret_input("azure_openai_api_key", "API Key") }}
           <div class="input-group">
             <label for="azure_openai_endpoint" class="input-label">Endpoint URL</label>
-            <input type="text" id="azure_openai_endpoint" name="azure_openai_endpoint" value="{{ azure_openai_endpoint }}" class="input-field" placeholder="https://...">
+            <input type="text" id="azure_openai_endpoint" name="azure_openai_endpoint" value="{{ values.azure_openai_endpoint }}" class="input-field" placeholder="https://...">
+            <p class="input-help">https:// only: the API key is sent to this address.</p>
           </div>
           <div class="input-group">
             <label for="azure_openai_deployment" class="input-label">Deployment Name</label>
-            <input type="text" id="azure_openai_deployment" name="azure_openai_deployment" value="{{ azure_openai_deployment }}" class="input-field">
+            <input type="text" id="azure_openai_deployment" name="azure_openai_deployment" value="{{ values.azure_openai_deployment }}" class="input-field">
           </div>
         </div>
 
@@ -121,12 +148,9 @@
           <div class="sp-pane-head">
             <span class="sp-ic"><img src="/static/gemini-logo.png" alt="Gemini"></span>
             <div><h3>Google Gemini</h3><p>Cloud · Gemini models</p></div>
-            <span class="status-pill {{ 'set' if gemini_api_key else 'unset' }}">{{ 'Configured' if gemini_api_key else 'Not set' }}</span>
+            <span class="status-pill {{ 'set' if secrets.gemini_api_key.configured else 'unset' }}">{{ 'Configured' if secrets.gemini_api_key.configured else 'Not set' }}</span>
           </div>
-          <div class="input-group">
-            <label for="gemini_api_key" class="input-label">API Key</label>
-            <input type="password" id="gemini_api_key" name="gemini_api_key" value="{{ gemini_api_key }}" class="input-field">
-          </div>
+          {{ secret_input("gemini_api_key", "API Key") }}
         </div>
 
         <!-- Anthropic -->
@@ -134,13 +158,9 @@
           <div class="sp-pane-head">
             <span class="sp-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.3L20 10.5l-5.8 2.2L12 19l-2.2-6.3L4 10.5l5.8-2.2z"></path></svg></span>
             <div><h3>Anthropic (Claude)</h3><p>Cloud · Claude models</p></div>
-            <span class="status-pill {{ 'set' if anthropic_api_key else 'unset' }}">{{ 'Configured' if anthropic_api_key else 'Not set' }}</span>
+            <span class="status-pill {{ 'set' if secrets.anthropic_api_key.configured else 'unset' }}">{{ 'Configured' if secrets.anthropic_api_key.configured else 'Not set' }}</span>
           </div>
-          <div class="input-group">
-            <label for="anthropic_api_key" class="input-label">API Key</label>
-            <input type="password" id="anthropic_api_key" name="anthropic_api_key" value="{{ anthropic_api_key }}" class="input-field" placeholder="sk-ant-...">
-            <p class="input-help">Used to call Claude models as a scan target. Stored encrypted on this host.</p>
-          </div>
+          {{ secret_input("anthropic_api_key", "API Key", "sk-ant-...", "Used to call Claude models as a scan target. Encrypted at rest on this host.") }}
         </div>
 
         <!-- Ollama -->
@@ -148,15 +168,15 @@
           <div class="sp-pane-head">
             <span class="sp-ic brand"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z"></path></svg></span>
             <div><h3>Ollama (Local)</h3><p>Local · Open-source models</p></div>
-            <span class="status-pill {{ 'set' if ollama_api_url else 'unset' }}">{{ 'Configured' if ollama_api_url else 'Not set' }}</span>
+            <span class="status-pill {{ 'set' if values.ollama_api_url else 'unset' }}">{{ 'Configured' if values.ollama_api_url else 'Not set' }}</span>
           </div>
           <div class="input-group">
             <label for="ollama_api_url" class="input-label">API URL</label>
-            <input type="text" id="ollama_api_url" name="ollama_api_url" value="{{ ollama_api_url }}" class="input-field" placeholder="http://ollama-cpu:11434">
+            <input type="text" id="ollama_api_url" name="ollama_api_url" value="{{ values.ollama_api_url }}" class="input-field" placeholder="http://ollama-cpu:11434">
           </div>
           <div class="input-group">
             <label for="ollama_timeout" class="input-label">Timeout (seconds)</label>
-            <input type="number" id="ollama_timeout" name="ollama_timeout" value="{{ ollama_timeout }}" class="input-field">
+            <input type="number" id="ollama_timeout" name="ollama_timeout" value="{{ values.ollama_timeout }}" class="input-field" min="1" max="3600">
           </div>
         </div>
 
@@ -165,16 +185,14 @@
           <div class="sp-pane-head">
             <span class="sp-ic"><img src="/static/azure-openai.png" alt="Azure"></span>
             <div><h3>Azure Content Safety</h3><p>Cloud · Content moderation</p></div>
-            <span class="status-pill {{ 'set' if azure_cs_key else 'unset' }}">{{ 'Configured' if azure_cs_key else 'Not set' }}</span>
+            <span class="status-pill {{ 'set' if secrets.azure_cs_key.configured else 'unset' }}">{{ 'Configured' if secrets.azure_cs_key.configured else 'Not set' }}</span>
           </div>
           <div class="input-group">
             <label for="azure_cs_endpoint" class="input-label">Endpoint URL</label>
-            <input type="text" id="azure_cs_endpoint" name="azure_cs_endpoint" value="{{ azure_cs_endpoint }}" class="input-field">
+            <input type="text" id="azure_cs_endpoint" name="azure_cs_endpoint" value="{{ values.azure_cs_endpoint }}" class="input-field" placeholder="https://...">
+            <p class="input-help">https:// only: the API key is sent to this address.</p>
           </div>
-          <div class="input-group">
-            <label for="azure_cs_key" class="input-label">API Key</label>
-            <input type="password" id="azure_cs_key" name="azure_cs_key" value="{{ azure_cs_key }}" class="input-field">
-          </div>
+          {{ secret_input("azure_cs_key", "API Key") }}
         </div>
 
         <div class="sp-save">

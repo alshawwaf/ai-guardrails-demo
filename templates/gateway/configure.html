@@ -1,0 +1,145 @@
+{% extends "gateway/_layout.html" %}
+{% block gw_main %}
+<header class="gw-hero">
+  <div class="gw-hero-text">
+    <span class="hero-badge" data-gw="cfg-badge">Step {{ gw_step_no }} of {{ gw_step_total }}</span>
+    <h1>Build the demo policy</h1>
+    <p>Pick what the demo should show, then build the plan. Building reads from the server only. Nothing is written until you approve it on the next step.</p>
+  </div>
+</header>
+
+<div data-gw="cfg-notice"></div>
+
+<div class="gw-grid gw-grid-main-side">
+  <div class="gw-stack">
+    <section class="gw-card" aria-labelledby="gw-cfg-profile-title">
+      <div class="gw-card-head">
+        <span class="gw-label">AI Agent Security</span>
+        <h2 class="gw-h2 gw-grow" id="gw-cfg-profile-title">Threat profile and rule</h2>
+      </div>
+      <div class="gw-row">
+        <div class="input-group gw-grow">
+          <label class="input-label" for="gw-profile-name">Threat profile name</label>
+          <input id="gw-profile-name" class="input-field" value="AIGuard-Demo" maxlength="100" spellcheck="false">
+        </div>
+        <div class="input-group gw-grow">
+          <label class="input-label" for="gw-rule-name">Threat rule name</label>
+          <input id="gw-rule-name" class="input-field" value="AI Guard Demo" maxlength="100" spellcheck="false">
+        </div>
+      </div>
+      <div class="gw-row">
+        <div class="input-group gw-grow">
+          <label class="input-label" for="gw-scope">Protected scope</label>
+          <select id="gw-scope" class="styled-select input-field">
+            <option value="client" selected>This server only (host object for its IP)</option>
+            <option value="any">Any (everything behind the gateway)</option>
+            <option value="object">An existing network object...</option>
+          </select>
+        </div>
+        <div class="input-group gw-grow" data-gw="scope-object-group" hidden>
+          <label class="input-label" for="gw-scope-object">Object name</label>
+          <input id="gw-scope-object" class="input-field" placeholder="internal_nets" maxlength="128" spellcheck="false">
+        </div>
+        <div class="input-group gw-narrow">
+          <label class="input-label" for="gw-track">Track</label>
+          <select id="gw-track" class="styled-select input-field">
+            {% for t in gw_tracks %}<option value="{{ t }}"{% if t == 'Log' %} selected{% endif %}>{{ t }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="gw-row">
+        <div class="input-group gw-grow">
+          <label class="input-label" for="gw-package">Policy package (optional)</label>
+          <input id="gw-package" class="input-field" placeholder="Taken from the gateway" maxlength="128" spellcheck="false">
+        </div>
+        <label class="gw-check gw-align-end"><input type="checkbox" id="gw-install" checked> Install policy after publish (Threat Prevention only)</label>
+      </div>
+
+      <div class="gw-protections">
+        <div class="gw-protection">
+          <div><strong>Prompt injection and jailbreaks</strong><span>"Ignore previous instructions", DAN, hidden instructions in pasted text</span></div>
+          <span class="gw-pill neutral">Project policy</span>
+        </div>
+        <div class="gw-protection">
+          <div><strong>Sensitive data in prompts</strong><span>Personal data such as card numbers and national IDs (PII detectors)</span></div>
+          <span class="gw-pill neutral">Project policy</span>
+        </div>
+      </div>
+      <p class="gw-help">AI Agent Security applies the policy of your AI Guardrails project. Change detectors and thresholds in Check Point Portal &gt; AI Security &gt; AI Guardrails &gt; Projects. The profile's confidence settings decide Prevent or Detect.</p>
+    </section>
+
+    <section class="gw-card" aria-labelledby="gw-cfg-key-title">
+      <div class="gw-card-head">
+        <span class="gw-label">Required</span>
+        <h2 class="gw-h2 gw-grow" id="gw-cfg-key-title">Guard API key and project</h2>
+      </div>
+      {% if gw_saved.key_saved %}
+      <fieldset class="gw-fieldset">
+        <legend class="input-label">Guard API key</legend>
+        <div class="gw-inline gw-wrap">
+          <label class="gw-radio"><input type="radio" name="gw-key-source" value="saved" checked> Use the key saved in Settings ({{ gw_saved.key_hint }})</label>
+          <label class="gw-radio"><input type="radio" name="gw-key-source" value="new"> Enter a different key</label>
+        </div>
+      </fieldset>
+      <div class="input-group" data-gw="key-input-group" hidden>
+        <label class="input-label" for="gw-lakera-key">Guard API key</label>
+        <input id="gw-lakera-key" type="password" class="input-field" autocomplete="off" spellcheck="false" maxlength="512">
+      </div>
+      {% else %}
+      <div class="input-group" data-gw="key-input-group">
+        <label class="input-label" for="gw-lakera-key">Guard API key</label>
+        <input id="gw-lakera-key" type="password" class="input-field" autocomplete="off" spellcheck="false" maxlength="512">
+      </div>
+      {% endif %}
+      <div class="input-group">
+        <label class="input-label" for="gw-project-id">Project ID</label>
+        <input id="gw-project-id" class="input-field gw-mono" value="{{ gw_saved.project_id }}" placeholder="project-..." maxlength="200" spellcheck="false">
+      </div>
+      <p class="gw-help">Check Point Portal &gt; AI Security &gt; AI Guardrails &gt; Settings &gt; API Access &gt; Guard API keys (64 hexadecimal characters; a Platform API key will not work). The project must have a policy assigned. The key is held in memory for this session and goes only into the threat profile.</p>
+      <div class="gw-actions">
+        <button type="button" class="secondary-btn" id="gw-key-check"><span class="btn-text">Check key</span><div class="loader hidden"></div></button>
+        <span class="gw-result-line" data-gw="key-result" role="status" aria-live="polite"></span>
+      </div>
+      <div data-gw="key-warnings"></div>
+      <div data-gw="key-error"></div>
+    </section>
+
+    <section class="gw-card" aria-labelledby="gw-cfg-mod-title">
+      <div class="gw-card-head">
+        <span class="gw-label">Optional</span>
+        <h2 class="gw-h2 gw-grow" id="gw-cfg-mod-title">Content moderation</h2>
+        <div class="toggle-container gw-toggle">
+          <input class="toggle-input" id="gw-moderation" type="checkbox">
+          <label class="toggle-label" for="gw-moderation"><span class="toggle-switch"></span><span class="toggle-text">On</span></label>
+        </div>
+      </div>
+      <p class="gw-muted">Blocks hateful, violent, sexual, self-harm and profane prompts. Enforced by the gateway, logged in SmartConsole.</p>
+      <p class="gw-help">This is a gateway setting, not part of the Management API. After you approve, AI Guard runs a one-time script on the gateway (needs the "Run One Time Script" permission). If it cannot, the plan shows the commands for you to run in Expert mode.</p>
+    </section>
+
+    <section class="gw-card gw-info-card" aria-labelledby="gw-cfg-wf-title">
+      <div class="gw-card-head">
+        <span class="gw-label neutral">Information</span>
+        <h2 class="gw-h2 gw-grow" id="gw-cfg-wf-title">Workforce AI Security</h2>
+        <span class="gw-pill neutral" data-gw="wf-state">Not checked</span>
+      </div>
+      <p class="gw-muted">Workforce AI Security protects employees who use web AI apps (ChatGPT, Gemini, Copilot and others) through Access Control and Content Awareness. It is separate from AI Agent Security, which protects developer API traffic and is what this demo configures. Nothing here changes it.</p>
+    </section>
+  </div>
+
+  <aside class="gw-card gw-plan-card" aria-labelledby="gw-cfg-plan-title">
+    <div class="gw-card-head">
+      <h2 class="gw-h2 gw-grow" id="gw-cfg-plan-title">Change plan</h2>
+      <span class="gw-muted gw-mono" data-gw="plan-where"></span>
+    </div>
+    <div data-gw="plan-list"><p class="gw-muted">Build the plan to see exactly what will change.</p></div>
+    <div data-gw="plan-warnings"></div>
+    <div data-gw="plan-error"></div>
+    <p class="gw-note">A rollback point is saved before anything is published.</p>
+    <div class="gw-actions gw-actions-col">
+      <button type="button" class="btn-gradient" id="gw-plan-build"><span class="btn-text">Build the plan</span><div class="loader hidden"></div></button>
+      <a class="secondary-btn gw-btn-link is-disabled" id="gw-plan-review" href="{{ url_for('gateway.install') }}" aria-disabled="true">Review and approve</a>
+    </div>
+  </aside>
+</div>
+{% endblock %}

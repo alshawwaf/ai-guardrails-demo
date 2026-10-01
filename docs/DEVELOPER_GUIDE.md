@@ -77,7 +77,7 @@ The application follows a **modular hybrid architecture**, combining a Flask bac
 ### Backend (`app.py`)
 - **Framework**: Flask
 - **Database**: SQLite (via SQLAlchemy)
-- **Auth**: Flask-Login; all UI pages are `@login_required`. An initial admin is seeded from `DEFAULT_ADMIN_EMAIL` / `DEFAULT_ADMIN_PASSWORD`.
+- **Auth**: Flask-Login; a global `before_request` gate requires sign-in for every route except login, health and static files. The single admin comes from `DEFAULT_ADMIN_EMAIL` plus `DEFAULT_ADMIN_PASSWORD` (or `DEFAULT_ADMIN_PASSWORD_HASH`); sign-in is refused while either is unset or a published placeholder (`change_me_please`, `set-me`). Saved API keys are encrypted at rest (AES-256-GCM, `secure_settings.py`) and `/api/settings` returns only masked values.
 - **API Routes**:
     - `/api/analyze`: Core logic for AI Guardrails scans.
     - `/api/analytics`: Dashboard metrics.
@@ -117,7 +117,8 @@ ai-guardrails-demo/
 │   ├── css/               # Stylesheets (Modular)
 │   └── js/                # ES6 JavaScript Modules
 ├── templates/             # HTML Templates (Jinja2)
-├── docker-compose.yml     # Docker composition
+├── docker-compose.yml     # Docker composition (web + Redis)
+├── docker-compose.prod.yml # + Nginx + backup; app behind nginx (make prod)
 ├── Makefile               # Task automation
 └── requirements.txt       # Python dependencies
 ```

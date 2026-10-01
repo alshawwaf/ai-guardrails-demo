@@ -31,7 +31,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Page routing - load appropriate module based on page
-  if (document.getElementById("prompt")) {
+  if (document.querySelector(".gateway-page")) {
+    console.log("Initializing Gateway Mode...");
+    import('./pages/gateway.js').then(module => {
+      module.initGateway();
+    });
+  } else if (document.getElementById("prompt")) {
     console.log("Initializing Playground...");
     import('./pages/playground.js').then(module => {
       module.initPlayground();

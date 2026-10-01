@@ -1,6 +1,18 @@
 // ============================================
 // Logs Page Module
+// Log fields (prompt, timestamp, attack vectors, id) come from the database and
+// can be attacker-controlled: they are rendered with textContent / DOM only.
 // ============================================
+
+import { apiFetch, createDetectorBadge, createSvg, showNotification } from "../shared/utils.js";
+
+const TRASH_ICON = [
+  ["polyline", { points: "3 6 5 6 21 6" }],
+  ["path", { d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" }],
+];
+
+// State-changing calls send a JSON body so they pass the server's same-origin/JSON checks.
+const JSON_HEADERS = { "Content-Type": "application/json" };
 
 /**
  * Initialize logs page
@@ -137,15 +149,22 @@ export function initLogs() {
     
     if (confirmOkBtn) {
         confirmOkBtn.addEventListener("click", async () => {
-            if (isDeleteAll) {
-                await fetch("/api/logs", { method: "DELETE" });
+            try {
+                if (isDeleteAll) {
+                    const response = await apiFetch("/api/logs", { method: "DELETE", headers: JSON_HEADERS, body: "{}" });
+                    if (!response.ok) throw new Error(`Could not delete the logs (HTTP ${response.status})`);
+                    hideConfirmModal();
+                    currentPage = 1;
+                    loadLogs();
+                } else if (logIdToDelete) {
+                    const response = await apiFetch(`/api/logs/${encodeURIComponent(logIdToDelete)}`, { method: "DELETE", headers: JSON_HEADERS, body: "{}" });
+                    if (!response.ok) throw new Error(`Could not delete the log (HTTP ${response.status})`);
+                    hideConfirmModal();
+                    loadLogs();
+                }
+            } catch (error) {
                 hideConfirmModal();
-                currentPage = 1;
-                loadLogs();
-            } else if (logIdToDelete) {
-                await fetch(`/api/logs/${logIdToDelete}`, { method: "DELETE" });
-                hideConfirmModal();
-                loadLogs();
+                showNotification(error.message, "error");
             }
         });
     }
@@ -177,10 +196,15 @@ export function initLogs() {
         if (endDateInput && endDateInput.value) params.append("end_date", endDateInput.value);
         url += `?${params.toString()}`;
 
-        const response = await fetch(url);
+        // apiFetch sends the browser to /login when the session has ended (401).
+        const response = await apiFetch(url);
         const data = await response.json();
+        if (!response.ok || !data || typeof data !== "object") {
+          // Keep the table as it is: an error is not "0 logs".
+          throw new Error((data && data.error) || `Logs request failed (HTTP ${response.status})`);
+        }
 
-        let logs = data.logs || [];
+        let logs = Array.isArray(data.logs) ? data.logs : [];
         const pagination = data.pagination || {};
 
         // Update pagination state
@@ -191,7 +215,7 @@ export function initLogs() {
         if (filterParam) {
           logs = logs.filter(
             (log) =>
-              log.attack_vectors && log.attack_vectors.includes(filterParam)
+              Array.isArray(log.attack_vectors) && log.attack_vectors.includes(filterParam)
           );
         }
 
@@ -207,15 +231,19 @@ export function initLogs() {
 
     function updatePaginationUI(pagination) {
       // Update page indicator
+      const current = pagination.current_page || 1;
+      const pages = pagination.total_pages || 1;
+      const total = pagination.total_logs || 0;
+      const per = pagination.per_page || perPage;
       if (pageIndicator) {
-        pageIndicator.textContent = `Page ${pagination.current_page} of ${pagination.total_pages}`;
+        pageIndicator.textContent = `Page ${current} of ${pages}`;
       }
 
       // Update info text
       if (paginationInfoText) {
-        const start = pagination.total_logs > 0 ? ((pagination.current_page - 1) * pagination.per_page) + 1 : 0;
-        const end = Math.min(pagination.current_page * pagination.per_page, pagination.total_logs);
-        paginationInfoText.textContent = `Showing ${start}-${end} of ${pagination.total_logs} logs`;
+        const start = total > 0 ? ((current - 1) * per) + 1 : 0;
+        const end = Math.min(current * per, total);
+        paginationInfoText.textContent = `Showing ${start}-${end} of ${total} logs`;
       }
 
       // Enable/disable buttons
@@ -225,58 +253,76 @@ export function initLogs() {
       if (lastPageBtn) lastPageBtn.disabled = !pagination.has_next;
     }
 
+    function statusCell(text, cls) {
+      const span = document.createElement("span");
+      span.className = cls;
+      span.textContent = text;
+      return span;
+    }
+
     function updateLogsTable(logs) {
       const tbody = document.querySelector("#logs-table tbody");
       if (!tbody) return;
-      tbody.innerHTML = "";
+      tbody.replaceChildren();
 
       logs.forEach((log, index) => {
         const row = document.createElement("tr");
         row.onclick = () => window.openLogDetails(index);
 
-        let statusHtml = '<span class="status-safe">Safe</span>';
-        let isFlagged = false;
+        let status = statusCell("Safe", "status-safe");
 
         if (log.error) {
-          statusHtml = '<span class="status-flagged">Error</span>';
+          status = statusCell("Error", "status-flagged");
         } else if (log.result) {
           if (
             log.result.flagged ||
-            (log.result.results && log.result.results.some((r) => r.flagged))
+            (Array.isArray(log.result.results) && log.result.results.some((r) => r && r.flagged))
           ) {
-            statusHtml = '<span class="status-flagged">Flagged</span>';
-            isFlagged = true;
+            status = statusCell("Flagged", "status-flagged");
           }
         }
 
+        const prompt = log.prompt == null ? "" : String(log.prompt);
         const promptText =
-          log.prompt.length > 50
-            ? log.prompt.substring(0, 50) + "..."
-            : log.prompt;
+          prompt.length > 50
+            ? prompt.substring(0, 50) + "..."
+            : prompt;
 
-        // Display attack vectors as colored badges
-        let attackTypesHtml = "-";
+        const tdTime = document.createElement("td");
+        tdTime.textContent = log.timestamp == null ? "" : String(log.timestamp);
+
+        const tdPrompt = document.createElement("td");
+        tdPrompt.title = prompt;
+        tdPrompt.textContent = promptText;
+
+        const tdStatus = document.createElement("td");
+        tdStatus.appendChild(status);
+
+        // Display attack vectors as colored badges (fixed palette, text labels)
+        const tdVectors = document.createElement("td");
         const vectors = Array.isArray(log.attack_vectors) ? log.attack_vectors : [];
         if (vectors.length > 0) {
-          attackTypesHtml = vectors
-            .map((v) => {
-              const color = window.getAttackColor(v);
-              return `<span class="attack-badge" style="background: ${color}20; border-color: ${color}; color: ${color};">${v}</span>`;
-            })
-            .join(" ");
+          vectors.forEach((v, i) => {
+            if (i > 0) tdVectors.appendChild(document.createTextNode(" "));
+            tdVectors.appendChild(createDetectorBadge(v, "attack-badge"));
+          });
+        } else {
+          tdVectors.textContent = "-";
         }
 
-        row.innerHTML = `
-                    <td>${log.timestamp}</td>
-                    <td title="${log.prompt}">${promptText}</td>
-                    <td>${statusHtml}</td>
-                    <td>${attackTypesHtml}</td>
-                    <td>
-                        <button class="delete-btn" onclick="window.deleteLog(event, '${log.id}')" title="Delete Log">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                        </button>
-                    </td>
-                `;
+        const tdActions = document.createElement("td");
+        const delBtn = document.createElement("button");
+        delBtn.className = "delete-btn";
+        delBtn.type = "button";
+        delBtn.title = "Delete Log";
+        delBtn.appendChild(createSvg(TRASH_ICON, {
+          width: 16, height: 16, fill: "none", stroke: "currentColor", "stroke-width": 2,
+        }));
+        const logId = log.id;
+        delBtn.addEventListener("click", (e) => window.deleteLog(e, logId));
+        tdActions.appendChild(delBtn);
+
+        row.append(tdTime, tdPrompt, tdStatus, tdVectors, tdActions);
         tbody.appendChild(row);
       });
     }
