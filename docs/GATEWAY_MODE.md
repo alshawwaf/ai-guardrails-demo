@@ -220,7 +220,7 @@ Fix every blocking result (red, "blocking"); the fix lines are copy-paste ready.
 
 For a lab host whose traffic goes through the gateway (so HTTPS Inspection re-signs pypi.org and Docker Hub):
 
-1. Trust the gateway's outbound CA on the host: `sudo cp outbound-ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates`, then `sudo systemctl restart docker`.
+1. Trust the gateway's outbound CA on the host: `sudo cp outbound-ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates`. For Docker, prefer the per-registry folder, which needs no daemon restart: `sudo install -D -m 0644 outbound-ca.crt /etc/docker/certs.d/registry-1.docker.io/aiguard-outbound-ca.crt` (and the same for docker.io, index.docker.io, auth.docker.io, production.cloudflare.docker.com, ghcr.io). Restarting Docker (`sudo systemctl restart docker`) restarts every container on the host; do it only on a host where that is acceptable. `scripts/lab_install.sh` (the one-command installer) does all of this for you and never restarts a Docker daemon that has running containers unless you pass `--restart-docker`.
 2. Copy the same file to `certs/outbound-ca.crt` in this folder. The Docker build adds every `certs/*.crt` to the image's trust store (pip, requests and the aiguard core use it); verification stays on. See `certs/README.md`.
 3. `cp .env.example .env` and set `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD`.
 4. `./scripts/lab_run_web.sh` builds the image (first time 10-20 minutes) and starts one container with host networking on `APP_PORT` (default 9000). `--rebuild` after a change, `--stop` to stop. With `AIGUARD_DOCKER_NET=bridge` it publishes the port instead; then set `AIGUARD_LOCAL_IP` to the host's IP.
