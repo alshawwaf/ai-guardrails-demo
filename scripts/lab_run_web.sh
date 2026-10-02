@@ -55,6 +55,17 @@ fi
 
 mkdir -p instance logs data
 $SUDO docker rm -f "$NAME" >/dev/null 2>&1 || true
+# Another program (for example an older copy of this app) on the same port would
+# make the new container fail to start, and its /health would look like ours.
+if command -v ss >/dev/null 2>&1; then
+  BUSY="$($SUDO ss -ltnpH 2>/dev/null | awk -v p="$PORT" '{n=split($4,a,":"); if (a[n]==p) print}' || true)"
+  if [ -n "$BUSY" ]; then
+    echo "Port $PORT is already in use on this host by another program:" >&2
+    echo "$BUSY" | sed 's/^/  /' >&2
+    echo "Stop that program, or pick another port: set APP_PORT in .env (installer: --port N)." >&2
+    exit 1
+  fi
+fi
 $SUDO docker run -d --name "$NAME" --restart unless-stopped "${NET_ARGS[@]}" \
   --env-file .env \
   -e AIGUARD_HOME=/app/logs/aiguard \
