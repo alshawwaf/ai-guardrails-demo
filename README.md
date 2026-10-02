@@ -102,24 +102,21 @@ Gateway Mode keeps those sessions in the memory of one app process: run **one** 
 
 ### Lab quick start: a Linux host behind the gateway
 
-The usual demo setup is one Linux VM behind the gateway that runs the web console, with the presenter's browser on another machine. Its traffic goes through HTTPS Inspection, so the host and the Docker build must trust the gateway's outbound CA. Without it, pulls and `pip install` fail with certificate errors. Verification is never turned off.
+One file, one command. On your workstation build the self-extracting installer (it contains this repository without git history, tests, settings or keys):
 
-1. Export the gateway's **outbound CA** (Base64 PEM) as `outbound-ca.crt`, for example from a browser's certificate viewer on an inspected site (Details > top certificate > Export).
-2. On the Linux host:
+```bash
+./scripts/make_lab_installer.sh          # writes dist/aiguard-lab-install.sh and prints its SHA-256
+```
 
-   ```bash
-   sudo cp outbound-ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates
-   sudo apt-get update && sudo apt-get install -y docker.io && sudo systemctl restart docker
-   git clone https://github.com/alshawwaf/ai-guardrails-demo.git && cd ai-guardrails-demo
-   cp ../outbound-ca.crt certs/outbound-ca.crt      # added to the image's trust store (see certs/README.md)
-   cp .env.example .env                             # set DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD
-   ./scripts/lab_run_web.sh                          # builds (10-20 min the first time) and starts one container
-   ```
+Copy `dist/aiguard-lab-install.sh` to the lab's Linux host (Ubuntu/Debian, behind the gateway) and run:
 
-3. Open `http://<host-ip>:9000`, sign in, and open **Gateway Mode**. On the Connect page, paste the management server's certificate. It must verify by the address you use; see the note above.
-4. The CLI runs in the same container and shares the logs and rollback points: `sudo docker exec -it aiguard-web python -m aiguard setup`.
+```bash
+bash aiguard-lab-install.sh --mgmt <management-ip> --gateway <gateway-object-name>
+```
 
-`./scripts/lab_run_web.sh --rebuild` rebuilds after an update (`git pull`); `--stop` stops the container. The script uses host networking, so the gateway sees the host's own IP; with `AIGUARD_DOCKER_NET=bridge` it publishes the port instead, and then you set `AIGUARD_LOCAL_IP` in `.env`. Details: [docs/GATEWAY_MODE.md, 4.10](docs/GATEWAY_MODE.md#410-run-the-web-console-on-a-linux-host-behind-the-gateway).
+It installs what is missing (Docker, curl, openssl), finds the gateway's HTTPS Inspection outbound CA and trusts it on the host and in the image (only when that CA validates the chain the gateway presents; fingerprints are printed for you to compare), writes `.env` with a generated admin password and app keys, checks the management server's certificate and whether its Management API accepts calls from the host, builds and starts the web console, and prints the URL and sign-in. The Connect page is then pre-filled (server, certificate, gateway); you type only the Management API key and the Guard API key + project ID, which stay in memory. Rerun the same file to update (settings and data are kept); `--uninstall` removes the container and image; `--help` lists the options. Verification is never turned off: when the management certificate cannot be verified by IP (the default Gaia certificate), the installer says so and how to fix it.
+
+Manual alternative: `./scripts/lab_run_web.sh` builds and starts the same container from a checkout (put the outbound CA in `certs/outbound-ca.crt` first; see [docs/GATEWAY_MODE.md, 4.10](docs/GATEWAY_MODE.md#410-run-the-web-console-on-a-linux-host-behind-the-gateway)). The CLI runs in the same container and shares logs and rollback points: `sudo docker exec -it aiguard-web python -m aiguard setup`.
 
 ## Deployment
 
@@ -255,7 +252,7 @@ ai-guardrails-demo/
 ├── demo_guides/            # Per-page demo walkthroughs (06: Gateway Mode)
 ├── docs/                   # ARCHITECTURE / CONFIGURATION / PRODUCTION / DEVELOPER_GUIDE / GATEWAY_MODE
 ├── nginx/nginx.conf        # Reverse-proxy config (docker-compose.prod.yml)
-├── scripts/                # lab_run_web.sh (lab host: build + run), start_production.sh, backup_db.py, warmup_models.py, check_deploy_config.py
+├── scripts/                # make_lab_installer.sh + lab_install.sh (one-command lab installer), lab_run_web.sh (build + run), start_production.sh, backup_db.py, warmup_models.py, check_deploy_config.py
 ├── static/                 # ES6 JS modules + modular CSS
 ├── templates/              # Jinja2 templates (templates/gateway/: Gateway Mode pages)
 └── tests/                  # pytest suite (tests/core: aiguard, no heavy dependencies)
