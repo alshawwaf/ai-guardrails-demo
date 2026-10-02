@@ -10,16 +10,18 @@
 # scope and the log matching use the right address without AIGUARD_LOCAL_IP.
 # Settings come from .env (cp .env.example .env). Data stays on this host in
 # ./instance (database, generated keys) and ./logs (app log, aiguard run logs).
+case "$(head -c 4096 -- "$0" 2>/dev/null || true)" in *$'\r'*) printf '%s\n' "This file has Windows (CRLF) line endings. Fix: sed -i 's/\r\$//' \"$0\"" >&2; exit 2 ;; esac # CRLF guard: this line ends in a comment so it still parses with CRLF
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 IMAGE="${AIGUARD_IMAGE:-aiguard-web:lab}"
 NAME="${AIGUARD_CONTAINER:-aiguard-web}"
+command -v docker >/dev/null 2>&1 || { echo "Docker is not installed (Ubuntu: sudo apt-get install docker.io)." >&2; exit 1; }
 SUDO=""
-if ! docker info >/dev/null 2>&1; then SUDO="sudo"; fi
+if [ "$(id -u)" -ne 0 ] && ! docker info >/dev/null 2>&1; then SUDO="sudo"; fi
 
 if [ "${1:-}" = "--stop" ]; then
-  $SUDO docker rm -f "$NAME" >/dev/null 2>&1 && echo "Stopped $NAME." || echo "$NAME is not running."
+  if $SUDO docker rm -f "$NAME" >/dev/null 2>&1; then echo "Stopped $NAME."; else echo "$NAME is not running."; fi
   exit 0
 fi
 
@@ -41,7 +43,8 @@ if [ "${1:-}" = "--rebuild" ] || ! $SUDO docker image inspect "$IMAGE" >/dev/nul
   $SUDO docker build -t "$IMAGE" .
 fi
 
-PORT="$(grep -E '^APP_PORT=' .env | tail -1 | cut -d= -f2)"; PORT="${PORT:-9000}"
+PORT="$( (grep -E '^APP_PORT=' .env || true) | tail -n 1 | cut -d= -f2 | tr -d "\r\"' ")"
+case "$PORT" in ''|*[!0-9]*) PORT=9000 ;; esac
 # AIGUARD_DOCKER_NET=bridge publishes the port instead (then set AIGUARD_LOCAL_IP
 # in .env to this host's IP, because the gateway sees the host, not the container).
 if [ "${AIGUARD_DOCKER_NET:-host}" = "host" ]; then
@@ -63,10 +66,10 @@ $SUDO docker run -d --name "$NAME" --restart unless-stopped "${NET_ARGS[@]}" \
 echo "Started $NAME. Waiting for the app..."
 for _ in $(seq 1 60); do
   if curl -fsS "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
-    IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    IP="$( (hostname -I 2>/dev/null || true) | awk '{print $1}')"
     echo "Ready: http://${IP:-<this-host>}:${PORT}  (sign in, then open Gateway Mode)"
     echo "CLI in the same container (shares logs and rollback points with the web console):"
-    echo "  $SUDO docker exec -it $NAME python -m aiguard setup"
+    echo "  ${SUDO:+$SUDO }docker exec -it $NAME python -m aiguard setup"
     exit 0
   fi
   sleep 3

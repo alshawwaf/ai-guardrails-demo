@@ -21,6 +21,16 @@ Secrets are never taken from the command line: only from a hidden prompt
 Flags such as ``--api-key`` / ``--password`` are refused before parsing, without
 echoing their value.
 
+Defaults from the environment (:mod:`aiguard.envdefaults`, written to ``.env`` by the lab
+installer): when ``--server``, ``--port``, ``--server-type``, ``--domain``,
+``--server-name``, ``--ca-file`` or ``--gateway`` is not given, ``AIGUARD_MGMT_SERVER``,
+``AIGUARD_MGMT_PORT``, ``AIGUARD_MGMT_TYPE``, ``AIGUARD_MGMT_DOMAIN``,
+``AIGUARD_MGMT_SERVER_NAME``, ``AIGUARD_MGMT_CA_FILE`` and ``AIGUARD_GATEWAY`` are used
+before the remembered state and before asking; ``setup`` shows them as the default
+answers. Flags always win. Port, type, domain and server name apply only to the
+configured server; ``AIGUARD_MGMT_CA_FILE`` is checked like ``--ca-file`` and is for the
+management connection only (the provider connections use ``--outbound-ca``).
+
 Testing: :func:`main` takes ``console`` (a :class:`Console` whose ``input`` /
 ``secret`` / ``print`` can be scripted) and ``session_factory`` (called with the
 ``Session`` keyword arguments; tests use it to point the session at fake servers).
@@ -51,13 +61,15 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 from urllib.parse import urlsplit
 
 from . import __version__
+from . import envdefaults as _envdefaults
 from . import paths as _paths
 from . import probe as _probe
 from . import redact as _redact
 from . import runlog as _runlog
 from . import scenes as _scenes
+from . import tlsutil as _tlsutil
 from .engine import Session
-from .errors import AiguardError, ApprovalError, LakeraError, PlanError
+from .errors import AiguardError, ApprovalError, LakeraError, PlanError, TlsTrustError
 from .plan import PlanOptions
 from .runlog import RunLog
 from .state import State
@@ -306,11 +318,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     conn = _Parser(add_help=False)
     g = conn.add_argument_group("management server")
-    g.add_argument("--server", metavar="ADDRESS", help="management server (SMS/MDS) address")
-    g.add_argument("--port", type=_port_type, metavar="N", help="web API port (default 443)")
+    g.add_argument("--server", metavar="ADDRESS",
+                   help="management server (SMS/MDS) address (default: $AIGUARD_MGMT_SERVER, "
+                        "else the last one)")
+    g.add_argument("--port", type=_port_type, metavar="N",
+                   help="web API port (default: $AIGUARD_MGMT_PORT, else 443)")
     g.add_argument("--server-type", choices=["sms", "mds"], type=str.lower,
-                   help="SMS or MDS (asked by setup when not given)")
-    g.add_argument("--domain", metavar="NAME", help="MDS domain")
+                   help="SMS or MDS (asked by setup when not given; default $AIGUARD_MGMT_TYPE)")
+    g.add_argument("--domain", metavar="NAME", help="MDS domain (default: $AIGUARD_MGMT_DOMAIN)")
     g.add_argument("--api-key-env", metavar="VAR",
                    help="read the Management API key from environment variable VAR")
     g.add_argument("--user", metavar="NAME", help="administrator name (password is asked, "
@@ -319,10 +334,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="read the password for --user from environment variable VAR")
     g.add_argument("--ca-file", metavar="PEM",
                    help="extra CA certificate(s) to trust: the management certificate / ICA, "
-                        "and (unless --outbound-ca is given) the gateway's outbound CA")
+                        "and (unless --outbound-ca is given) the gateway's outbound CA "
+                        "(default for the management connection: $AIGUARD_MGMT_CA_FILE)")
     g.add_argument("--server-name", metavar="NAME",
-                   help="name in the management certificate when it differs from --server")
-    g.add_argument("--gateway", metavar="NAME", help="target gateway or cluster")
+                   help="name in the management certificate when it differs from --server "
+                        "(default: $AIGUARD_MGMT_SERVER_NAME)")
+    g.add_argument("--gateway", metavar="NAME",
+                   help="target gateway or cluster (default: $AIGUARD_GATEWAY)")
 
     planp = _Parser(add_help=False)
     p = planp.add_argument_group("demo policy")
@@ -664,12 +682,53 @@ class _Run(object):
         self.provider_key_set = False
         self.correlate_s = 0.0
         self._live_open = False
+        self._env: Optional[_envdefaults.Defaults] = None
+        self._env_warned = False
 
     # ------------------------------------------------------------------ plumbing
 
     def arg(self, name: str, default: Any = None) -> Any:
         value = getattr(self.args, name, None)
         return default if value is None else value
+
+    @property
+    def env(self) -> "_envdefaults.Defaults":
+        """Connection defaults from the environment (read once per run)."""
+        if self._env is None:
+            self._env = _envdefaults.from_env()
+        return self._env
+
+    def env_problems(self) -> None:
+        """Say once which environment defaults were ignored (and why)."""
+        if self._env_warned:
+            return
+        self._env_warned = True
+        for problem in self.env.problems:
+            self.line("warn", "Environment", problem)
+            if self.log is not None:
+                self.log.warn("cli", "environment default ignored", problem=problem)
+
+    def env_ca_file(self) -> str:
+        """``AIGUARD_MGMT_CA_FILE``, checked the way ``--ca-file`` is (missing, not a
+        file, not PEM): an :class:`AiguardError` naming the variable otherwise."""
+        name = _envdefaults.ENV_CA_FILE
+        path = Path(str(self.env.ca_file)).expanduser()
+        try:
+            _tlsutil.make_context(str(path))
+        except TlsTrustError as exc:
+            raise TlsTrustError(
+                "The CA file in %s cannot be used: %s" % (name, exc.what), code=exc.code,
+                server_said=exc.server_said,
+                why="%s (set in .env by the lab installer) names the CA certificate for the "
+                    "management connection. %s" % (name, exc.why or ""),
+                fix=["Check the file and the path in .env (%s=%s); run the installer again "
+                     "to save the certificate" % (name, path),
+                     "Or pass --ca-file <file.pem> to use another file (a flag wins over "
+                     "the environment)",
+                     "Or empty %s in .env to connect without it" % name],
+                state="No connection was made.",
+                details={"variable": name, "ca_file": str(path)}) from None
+        return str(path)
 
     def open(self) -> Any:
         """The engine session (created on first use, with its run log)."""
@@ -1038,14 +1097,23 @@ class _Run(object):
         """Log in (``optional``: an empty hidden answer skips and returns None)."""
         s = self.open()
         last = self.state.last()
+        env = self.env
+        self.env_problems()
+        used_env: List[str] = []
         server = self.arg("server")
         stype = (self.arg("server_type") or "").upper() or None
         if wizard:
             last_type = str(last.get("server_type") or "").upper()
-            stype = self.ask_choice("Server type", ["SMS", "MDS"],
-                                    default=last_type if last_type in ("SMS", "MDS") else "SMS",
+            type_default = (env.server_type if env.server_type and env.applies_to(server or
+                                                                                  env.server)
+                            else last_type if last_type in ("SMS", "MDS") else "SMS")
+            stype = self.ask_choice("Server type", ["SMS", "MDS"], default=type_default,
                                     given=stype)
-            server = self.ask_text("Management address", default=last.get("server"), given=server)
+            server = self.ask_text("Management address", default=env.server or last.get("server"),
+                                   given=server)
+        if not server and env.server:
+            server = env.server
+            used_env.append(_envdefaults.ENV_SERVER)
         if not server:
             server = last.get("server")
         if not server:
@@ -1056,17 +1124,49 @@ class _Run(object):
                 state="Nothing was changed.")
         server = str(server).strip()
         same = server == str(last.get("server") or "")
-        port = self.arg("port") or (last.get("port") if same else None) or 443
+        # port, domain and certificate name from the environment describe its server only
+        env_on = env.applies_to(server)
+
+        def pick(name: str, value: Any, var: str, remembered: Any) -> Any:
+            """The flag (given empty: none), else the environment's value (for its server),
+            else the value remembered for this server."""
+            given = getattr(self.args, name, None)
+            if given is not None:
+                return given if str(given).strip() else None
+            if env_on and value:
+                used_env.append(var)
+                return value
+            return remembered
+
+        port = pick("port", env.port, _envdefaults.ENV_PORT,
+                    last.get("port") if same else None) or 443
         if wizard:
             port = int(self.ask_text("Port", default=str(port), given=self.arg("port"),
                                      validate=lambda v: None if v.isdigit() and 0 < int(v) < 65536
                                      else "A port is a number from 1 to 65535."))
-        domain = self.arg("domain") or (last.get("domain") if same else None)
+        domain = pick("domain", env.domain, _envdefaults.ENV_DOMAIN,
+                      last.get("domain") if same else None)
         if str(domain or "").strip().lower() == "system data":
             domain = None
-        ca_file = self.arg("ca_file") or (last.get("ca_file") if same else None)
-        server_name = self.arg("server_name") or (last.get("server_name") if same else None)
-        if ca_file and not self.arg("ca_file") and not Path(str(ca_file)).expanduser().is_file():
+        server_name = pick("server_name", env.server_name, _envdefaults.ENV_SERVER_NAME,
+                           last.get("server_name") if same else None)
+        ca_from_env = False
+        given_ca = getattr(self.args, "ca_file", None)
+        if given_ca is not None:
+            ca_file = given_ca if str(given_ca).strip() else None
+        elif env.ca_file:
+            # for the management connection only; any server (it only adds trust)
+            ca_file = self.env_ca_file()       # checked like --ca-file; stops when unusable
+            ca_from_env = True
+            used_env.append(_envdefaults.ENV_CA_FILE)
+            if not quiet:
+                self.line("info", "CA file", ca_file, "from %s" % _envdefaults.ENV_CA_FILE)
+        else:
+            ca_file = last.get("ca_file") if same else None
+        if used_env and self.log is not None:
+            self.log.info("cli", "defaults from the environment", variables=sorted(set(used_env)))
+        if ca_file and not self.arg("ca_file") and not ca_from_env and \
+                not Path(str(ca_file)).expanduser().is_file():
             # Remembered from an earlier run (or a web console upload) and gone since:
             # connect without it rather than stop; a CA that is really needed is asked
             # for by the certificate error.
@@ -1076,7 +1176,7 @@ class _Run(object):
                 self.log.warn("cli", "the remembered CA file no longer exists; ignored",
                               ca_file=str(ca_file))
             ca_file = None
-        if ca_file and not self.arg("ca_file") and not quiet:
+        if ca_file and not self.arg("ca_file") and not ca_from_env and not quiet:
             self.line("info", "CA file", str(ca_file), "from the last run")
 
         api_key: Optional[str] = None
@@ -1128,6 +1228,14 @@ class _Run(object):
         except (ValueError, TypeError, OSError):
             pass
         self._show_connection(info, quiet=quiet)
+        seen = str(info.get("fingerprint_sha1") or "").upper()
+        if env_on and env.fingerprint_sha1 and seen and seen != env.fingerprint_sha1:
+            self.line("warn", "Certificate", "differs from what the installer saw",
+                      "%s %s; compare with: api fingerprint" % (
+                          _envdefaults.ENV_FINGERPRINT_SHA1, env.fingerprint_sha1))
+            if self.log is not None:
+                self.log.warn("cli", "the certificate differs from the one the installer saw",
+                              fingerprint_sha1=seen, installer=env.fingerprint_sha1)
         if info.get("server_type") == "MDS" and not domain:
             info = self._pick_domain(info, wizard=wizard, quiet=quiet)
         if wizard and stype and info.get("server_type") in ("SMS", "MDS") and \
@@ -1261,12 +1369,19 @@ class _Run(object):
         names = [g.name for g in gws]
         last_gw = self.state.last().get("gateway")
         wanted = self.arg("gateway")
+        env_gw = self.env.gateway if not wanted else None
+        if env_gw and env_gw not in names:
+            self.line("warn", "Gateway", "%s is not on this server" % env_gw,
+                      "%s ignored" % _envdefaults.ENV_GATEWAY)
+            env_gw = None
         if wizard:
-            default = wanted or (last_gw if last_gw in names else names[0])
+            default = wanted or env_gw or (last_gw if last_gw in names else names[0])
             self.show_gateways(gws, selected=default)
             name = self.ask_choice("Target gateway", names, default=default, given=wanted)
         elif wanted:
             name = wanted
+        elif env_gw:
+            name = env_gw
         elif last_gw in names:
             name = last_gw
         elif len(names) == 1:
@@ -1732,7 +1847,8 @@ class _Run(object):
         if self.arg("skip_tls_check"):
             self.line("warn", "TLS to %s" % host, str(status), "--skip-tls-check: running anyway")
             return
-        gw = self.arg("gateway") or self.state.last().get("gateway") or "The gateway"
+        gw = (self.arg("gateway") or self.env.gateway or self.state.last().get("gateway")
+              or "The gateway")
         if status == "not_inspected":
             title = "Traffic to %s is not being inspected" % host
             rows = [("Seen", ["certificate issuer %s (public CA)" % issuer]),
@@ -1769,7 +1885,7 @@ class _Run(object):
         if self.arg("no_logs"):
             return False
         last = self.state.last()
-        if not (self.arg("server") or last.get("server")):
+        if not (self.arg("server") or self.env.server or last.get("server")):
             self.line("skip", "Gateway logs", "not matched", "no management server known (aiguard "
                                                               "setup or --server)")
             return False
@@ -1800,7 +1916,8 @@ class _Run(object):
         self.stage = "check the last policy install"
         try:
             if getattr(s, "gateway", None) is None:
-                name = self.arg("gateway") or self.state.last().get("gateway")
+                name = (self.arg("gateway") or self.env.gateway
+                        or self.state.last().get("gateway"))
                 if not name:
                     self.line("skip", "Last policy install", "not checked",
                               "no gateway known (pass --gateway NAME)")
@@ -2534,6 +2651,37 @@ def _outbound_ca(run: _Run, session: Any) -> dict:
     return dict(data) if isinstance(data, dict) else {"pem": str(data)}
 
 
+def _status_env(run: _Run, dot: str) -> None:
+    """The connection defaults from the environment (lab installer's .env), if any."""
+    env = run.env
+    bits: List[str] = []
+    if env.server:
+        bits.append("%s:%s" % (env.server, env.port or 443))
+    elif env.port:
+        bits.append("port %s" % env.port)
+    if env.server_type:
+        bits.append(env.server_type)
+    if env.domain:
+        bits.append("domain %s" % env.domain)
+    if env.server_name:
+        bits.append("certificate name %s" % env.server_name)
+    if env.gateway:
+        bits.append("gateway %s" % env.gateway)
+    if bits:
+        run.line("info", "Defaults from the environment", dot.join(bits), "flags win")
+    if env.ca_file:
+        path = Path(env.ca_file).expanduser()
+        if path.is_file():
+            run.line("info", "CA file (environment)", str(path))
+        else:
+            run.line("warn", "CA file (environment)", "%s (missing)" % path,
+                     "connecting stops until %s names a PEM file" % _envdefaults.ENV_CA_FILE)
+    if env.fingerprint_sha1:
+        run.line("info", "Installer saw SHA-1", env.fingerprint_sha1,
+                 "compare with: api fingerprint")
+    run.env_problems()
+
+
 def cmd_status(run: _Run) -> int:
     run.banner()
     last = run.state.last()
@@ -2541,6 +2689,7 @@ def cmd_status(run: _Run) -> int:
     run.section(None, 0, "Status")
     run.line("info", "Version", __version__)
     run.line("info", "Home", str(run.home))
+    _status_env(run, dot)
     if last.get("server"):
         conn = ["%s:%s" % (last.get("server"), last.get("port") or 443)]
         if last.get("server_type"):

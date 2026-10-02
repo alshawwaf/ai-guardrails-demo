@@ -42,3 +42,5 @@ nginx/ssl/
 
 # Lab CA certificates for the Docker build (certs/README.md explains)
 certs/*.crt
+# Built lab installer (scripts/make_lab_installer.sh)
+dist/

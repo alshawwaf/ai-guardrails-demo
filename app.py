@@ -1701,11 +1701,25 @@ LOGIN_NOT_CONFIGURED_MSG = (
 LOGIN_NO_EMAIL_MSG = "Set DEFAULT_ADMIN_EMAIL in .env before signing in."
 
 
+def _env_unquoted(name):
+    """Env value with one pair of matching surrounding quotes removed.
+
+    docker compose strips the quotes from NAME='value' in .env, but
+    `docker run --env-file` (scripts/lab_run_web.sh) keeps them, which would
+    turn a quoted password hash or password into a different value.
+    """
+    value = os.getenv(name) or ""
+    stripped = value.strip()
+    if len(stripped) >= 2 and stripped[0] == stripped[-1] and stripped[0] in ("'", '"'):
+        return stripped[1:-1]
+    return value
+
+
 def admin_login_config():
     """(email, password_hash, password, problem). problem is None when sign-in can work."""
-    email = (os.getenv("DEFAULT_ADMIN_EMAIL") or "").strip()
-    pw_hash = (os.getenv("DEFAULT_ADMIN_PASSWORD_HASH") or "").strip()
-    password = os.getenv("DEFAULT_ADMIN_PASSWORD") or ""
+    email = _env_unquoted("DEFAULT_ADMIN_EMAIL").strip()
+    pw_hash = _env_unquoted("DEFAULT_ADMIN_PASSWORD_HASH").strip()
+    password = _env_unquoted("DEFAULT_ADMIN_PASSWORD")
     if not email:
         return email, pw_hash, password, LOGIN_NO_EMAIL_MSG
     if not pw_hash and (not password or password in PLACEHOLDER_PASSWORDS):

@@ -1,5 +1,9 @@
 {% extends "gateway/_layout.html" %}
+{#- gw_defaults: connection defaults from the environment (AIGUARD_MGMT_*, AIGUARD_GATEWAY),
+    display-safe (no secret, the CA file by name only). Rendered with autoescaping. -#}
 {% block gw_main %}
+{% set d = gw_defaults or {} %}
+{% set mds = d.server_type == "MDS" %}
 <header class="gw-hero">
   <div class="gw-hero-text">
     <span class="hero-badge">Step {{ gw_step_no }} of {{ gw_step_total }}</span>
@@ -12,27 +16,27 @@
 <div class="gw-grid gw-grid-main-side">
   <section class="gw-card" aria-labelledby="gw-connect-title">
     <h2 class="gw-h2 gw-sr-only" id="gw-connect-title">Management server</h2>
-    <form id="gw-connect-form" class="gw-form" autocomplete="off" novalidate>
+    <form id="gw-connect-form" class="gw-form" autocomplete="off" novalidate data-default-server-type="{{ 'MDS' if mds else 'SMS' }}">
       <div class="gw-field">
         <span class="input-label" id="gw-type-label">Server type</span>
         <div class="gw-seg" role="radiogroup" aria-labelledby="gw-type-label">
-          <button type="button" class="gw-seg-btn active" data-server-type="SMS" role="radio" aria-checked="true">Security Management (SMS)</button>
-          <button type="button" class="gw-seg-btn" data-server-type="MDS" role="radio" aria-checked="false">Multi-Domain (MDS)</button>
+          <button type="button" class="gw-seg-btn{% if not mds %} active{% endif %}" data-server-type="SMS" role="radio" aria-checked="{{ 'false' if mds else 'true' }}">Security Management (SMS)</button>
+          <button type="button" class="gw-seg-btn{% if mds %} active{% endif %}" data-server-type="MDS" role="radio" aria-checked="{{ 'true' if mds else 'false' }}">Multi-Domain (MDS)</button>
         </div>
       </div>
 
       <div class="gw-row">
         <div class="input-group gw-grow">
           <label class="input-label" for="gw-server">Address</label>
-          <input id="gw-server" class="input-field gw-mono" placeholder="192.0.2.10 or mgmt.example.com" spellcheck="false" autocomplete="off" maxlength="253">
+          <input id="gw-server" class="input-field gw-mono" placeholder="192.0.2.10 or mgmt.example.com" spellcheck="false" autocomplete="off" maxlength="253" value="{{ d.server or '' }}">
         </div>
         <div class="input-group gw-narrow">
           <label class="input-label" for="gw-port">Port</label>
-          <input id="gw-port" class="input-field gw-mono" value="443" inputmode="numeric" maxlength="5">
+          <input id="gw-port" class="input-field gw-mono" value="{{ d.port or 443 }}" inputmode="numeric" maxlength="5">
         </div>
-        <div class="input-group gw-grow" data-gw="domain-group" hidden>
+        <div class="input-group gw-grow" data-gw="domain-group"{% if not mds %} hidden{% endif %}>
           <label class="input-label" for="gw-domain">Domain</label>
-          <input id="gw-domain" class="input-field" list="gw-domain-list" placeholder="Pick after connecting, or type it" maxlength="128" autocomplete="off">
+          <input id="gw-domain" class="input-field" list="gw-domain-list" placeholder="Pick after connecting, or type it" maxlength="128" autocomplete="off" value="{{ d.domain or '' }}">
           <datalist id="gw-domain-list"></datalist>
         </div>
       </div>
@@ -61,9 +65,24 @@
       </div>
       <p class="gw-help">Held in memory for this session only. Never saved, never written to the log. The session closes after {{ gw_idle_minutes }} minutes without activity.</p>
 
-      <details class="gw-details">
+      {% if d.problems %}
+      <div class="gw-callout warn" data-gw="defaults-problems">
+        <strong>Some defaults from the installer were ignored</strong>
+        <ul>{% for p in d.problems %}<li>{{ p }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+
+      <details class="gw-details"{% if d.ca or d.server_name or d.fingerprint_note %} open{% endif %}>
         <summary>Certificate trust</summary>
         <p class="gw-help">The connection is always verified. If the management certificate is not issued by a public CA, give AI Guard the CA that signed it.</p>
+        {% if d.ca_note %}
+        <div class="gw-callout info" data-gw="installer-ca">{{ d.ca_note }}. Used when the field below is empty.</div>
+        {% elif d.ca and d.ca.problem %}
+        <div class="gw-callout warn" data-gw="installer-ca-problem">The management certificate provided by the installer is not used: {{ d.ca.problem }}.</div>
+        {% endif %}
+        {% if d.fingerprint_note %}
+        <p class="gw-help" data-gw="installer-fingerprint">{{ d.fingerprint_note }}</p>
+        {% endif %}
         <div class="input-group">
           <label class="input-label" for="gw-ca-pem">Management CA certificate (PEM)</label>
           <input id="gw-ca-file" type="file" class="gw-file" accept=".pem,.crt,.cer,text/plain" aria-label="Choose a PEM file">
@@ -73,7 +92,7 @@
         </div>
         <div class="input-group">
           <label class="input-label" for="gw-server-name">Name in the certificate (optional)</label>
-          <input id="gw-server-name" class="input-field gw-mono" placeholder="mgmt.example.com" spellcheck="false" maxlength="253">
+          <input id="gw-server-name" class="input-field gw-mono" placeholder="mgmt.example.com" spellcheck="false" maxlength="253" value="{{ d.server_name or '' }}">
           <p class="gw-help">Use this when you connect by IP address but the certificate names a host. Compare the fingerprint below with <span class="gw-mono">api fingerprint</span> on the server.</p>
         </div>
       </details>
@@ -110,7 +129,7 @@
   </section>
 </div>
 
-<section class="gw-card" data-gw="gateways-card" hidden aria-labelledby="gw-gateways-title">
+<section class="gw-card" data-gw="gateways-card" hidden aria-labelledby="gw-gateways-title" data-default-gateway="{{ d.gateway or '' }}">
   <div class="gw-card-head">
     <h2 class="gw-h2" id="gw-gateways-title" data-gw="gateways-title">Gateways</h2>
     <span class="gw-muted">Pick the gateway your demo traffic goes through</span>

@@ -222,6 +222,15 @@ for _name in (
     "DEFAULT_LLM_MODEL",
     "AIGUARD_LOCAL_IP",
     "TRUSTED_PROXY_HOPS",
+    # connection defaults a lab installer writes to .env (aiguard/envdefaults.py)
+    "AIGUARD_MGMT_SERVER",
+    "AIGUARD_MGMT_PORT",
+    "AIGUARD_MGMT_SERVER_NAME",
+    "AIGUARD_MGMT_TYPE",
+    "AIGUARD_MGMT_DOMAIN",
+    "AIGUARD_MGMT_CA_FILE",
+    "AIGUARD_GATEWAY",
+    "AIGUARD_MGMT_FINGERPRINT_SHA1",
 ):
     os.environ.pop(_name, None)
 

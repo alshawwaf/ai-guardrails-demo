@@ -10,6 +10,9 @@
   with mode 0600. A replaced CA file is kept until the session closes (a running check or
   the management client may still read it) and every file is deleted on disconnect /
   expiry. :meth:`SessionStore.purge_ca_dir` removes what a killed process left behind.
+* Files named by ``protected`` (a callable returning paths: the management CA file the
+  lab installer configured in ``AIGUARD_MGMT_CA_FILE``) are never deleted, whatever
+  refers to them. The console reads that file in place and never copies it here.
 * At most ``max_per_user`` entries per signed-in user (the least recently used idle one is
   closed first), and the per-key history is bounded.
 * An engine Session that is in the middle of a synchronous operation (``Session.busy``)
@@ -222,7 +225,8 @@ class SessionStore(object):
                  on_create: Optional[Callable[[Any], None]] = None,
                  max_per_user: int = MAX_ENTRIES_PER_USER, max_history: int = MAX_HISTORY,
                  late_close_seconds: float = LATE_CLOSE_SECONDS,
-                 late_close_poll: float = 0.2) -> None:
+                 late_close_poll: float = 0.2,
+                 protected: Optional[Callable[[], Any]] = None) -> None:
         self.home = Path(home)
         self.ca_dir = Path(ca_dir)
         self.idle_seconds = float(idle_seconds)
@@ -233,6 +237,7 @@ class SessionStore(object):
         self.max_history = max(1, int(max_history))
         self.late_close_seconds = float(late_close_seconds)
         self.late_close_poll = float(late_close_poll)
+        self.protected = protected
         self._lock = threading.RLock()
         self._entries: Dict[Key, Entry] = {}
         # What survives a closed session (per key, bounded): log location and last error.
@@ -365,6 +370,37 @@ class SessionStore(object):
 
     # ------------------------------------------------------------------ CA files
 
+    def is_protected(self, path: Any) -> bool:
+        """True for a file this store must never delete (see ``protected``). A broken
+        ``protected`` callable protects everything (a file left behind is deleted by
+        :meth:`purge_ca_dir` at the next start; a deleted installer file is gone)."""
+        if path is None or self.protected is None:
+            return False
+        try:
+            items = [str(p) for p in (self.protected() or []) if p]
+        except Exception:  # noqa: BLE001 - see above
+            return True
+        if not items:
+            return False
+        target = Path(str(path))
+        for item in items:
+            other = Path(item).expanduser()
+            try:
+                if target.resolve() == other.resolve():
+                    return True
+                if target.exists() and other.exists() and os.path.samefile(str(target),
+                                                                           str(other)):
+                    return True
+            except (OSError, ValueError, RuntimeError):
+                if str(target) == str(other):
+                    return True
+        return False
+
+    def _delete(self, path: Optional[Path]) -> None:
+        if path is None or self.is_protected(path):
+            return
+        _remove(path)
+
     def save_ca(self, entry: Entry, pem_text: str, kind: str = "mgmt") -> Path:
         """Validate and store a CA PEM for this entry (replacing the previous one, which is
         kept until the session closes). Raises :class:`SessionClosed` when the entry was
@@ -383,7 +419,7 @@ class SessionStore(object):
                 if old is not None:
                     entry.retired.append(old)
         if closed:
-            _remove(path)
+            self._delete(path)
             raise SessionClosed("The web session was closed")
         return path
 
@@ -393,7 +429,7 @@ class SessionStore(object):
         is the entry's CA again and ``rejected`` is retired (deleted when it closes)."""
         with self._lock:
             if entry.closed:
-                _remove(rejected)
+                self._delete(rejected)
                 return
             current = entry.outbound_ca if kind == "outbound" else entry.mgmt_ca
             if current != rejected:
@@ -416,7 +452,7 @@ class SessionStore(object):
                 old, entry.mgmt_ca = entry.mgmt_ca, None
             if old is not None:
                 if entry.closed:
-                    _remove(old)
+                    self._delete(old)
                 else:
                     entry.retired.append(old)
 
@@ -433,7 +469,7 @@ class SessionStore(object):
                 used.update(str(p) for p in [e.mgmt_ca, e.outbound_ca] + list(e.retired) if p)
         count = 0
         for path in names:
-            if str(path) in used or not path.is_file():
+            if str(path) in used or not path.is_file() or self.is_protected(path):
                 continue
             _remove(path)
             count += 1
@@ -476,7 +512,7 @@ class SessionStore(object):
             watcher.start()
             return
         for path in files:
-            _remove(path)
+            self._delete(path)
 
     def _late_close(self, sess: Any, files: List[Path]) -> None:
         deadline = time.monotonic() + self.late_close_seconds
@@ -487,7 +523,7 @@ class SessionStore(object):
         except Exception:  # noqa: BLE001 - close never raises by contract
             pass
         for path in files:
-            _remove(path)
+            self._delete(path)
 
     def drop(self, key: Optional[Key], reason: str = "disconnect") -> bool:
         if key is None:

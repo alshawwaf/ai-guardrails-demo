@@ -9,7 +9,7 @@ anything else gets 415; same-origin is enforced app-wide by app.py):
 
 * ``POST connect`` {server, port, server_type, domain, auth, api_key | user+password,
   ca_pem?, clear_ca?, server_name?} -> {connect, warnings, discover_error, status}
-* ``GET  status`` -> Session.status() + {"job", "web"}
+* ``GET  status`` -> Session.status() + {"job", "web", "defaults"}
 * ``POST gateway`` {name} ; ``POST preflight`` {package?} -> job
 * ``POST lakera`` {api_key | use_saved, project_id, direct_check?} -> {lakera}
 * ``POST plan`` {options} | {template: "https-inspection", add_rule} -> {plan}
@@ -36,6 +36,14 @@ diagnoses becomes the console's own (fields and buttons), and errors get ``actio
 ``POST connect``, ``domain``, ``lakera`` and ``apply`` are rate limited per signed-in user
 and client address (:data:`RATE_LIMITS`) through the app's Flask-Limiter storage when it
 is registered in ``current_app.extensions["limiter"]`` (an in-process window otherwise).
+
+Defaults from the environment (:mod:`aiguard.envdefaults`, written to ``.env`` by the lab
+installer): the Connect page is pre-filled with them and ``status`` carries a display-safe
+``defaults`` object (no secrets, the CA file by name only). ``connect`` uses
+``AIGUARD_MGMT_CA_FILE`` when the request has no ``ca_pem`` / ``clear_ca`` and this browser
+uploaded no management CA (read in place: never copied into the per-session CA folder and
+never deleted), and ``AIGUARD_MGMT_SERVER_NAME`` when the request has no ``server_name``
+and the server is ``AIGUARD_MGMT_SERVER``.
 """
 
 from __future__ import annotations
@@ -59,6 +67,7 @@ from flask import session as flask_session
 from flask import url_for
 from flask_login import current_user, login_required
 
+from aiguard import envdefaults as _envdefaults
 from aiguard import probe as _probe
 from aiguard import redact as _redact
 from aiguard import scenes as _scenes
@@ -252,7 +261,8 @@ class GatewayContext(object):
         self.record_log = record_log
         self.jobs = JobRegistry()
         self.store = _store.SessionStore(home=self.home, ca_dir=self.ca_dir,
-                                         is_busy=self.jobs.is_busy, on_create=self.load_settings)
+                                         is_busy=self.jobs.is_busy, on_create=self.load_settings,
+                                         protected=self.protected_paths)
         self._stop = threading.Event()
         self._shut = False
         self._reaper: Optional[threading.Thread] = None
@@ -353,6 +363,52 @@ class GatewayContext(object):
             out.append({"name": name, "label": p.get("label", name), "model": p.get("model"),
                         "host": p.get("host"), "key": "saved" if name in keys else "dummy"})
         return out
+
+    # ------------------------------------------------------------------ environment
+
+    def env_defaults(self) -> "_envdefaults.Defaults":
+        """The connection defaults from the environment, read now (see envdefaults)."""
+        return _envdefaults.from_env()
+
+    def protected_paths(self) -> List[str]:
+        """Files the session store must never delete: the installer's management CA."""
+        path = self.env_defaults().ca_file
+        return [path] if path else []
+
+    def env_ca(self) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+        """(facts, problem) for ``AIGUARD_MGMT_CA_FILE``: facts (path, name, sha1,
+        subject_cn) when it is a readable certificate file without a private key, else the
+        reason it is not used (None, None when the variable is not set)."""
+        path = self.env_defaults().ca_file
+        if not path:
+            return None, None
+        try:
+            return _envdefaults.inspect_ca_file(path), None
+        except _envdefaults.CaFileError as exc:
+            return None, str(exc)
+
+    def defaults_view(self) -> Dict[str, Any]:
+        """Display-safe defaults for the pages and ``status`` (none of them is a secret;
+        the CA file is named without its directory)."""
+        d = self.env_defaults()
+        ca: Optional[Dict[str, Any]] = None
+        note = None
+        if d.ca_file:
+            info, problem = self.env_ca()
+            ca = {"file_name": Path(d.ca_file).name or d.ca_file, "usable": info is not None,
+                  "subject_cn": (info or {}).get("subject_cn"), "sha1": (info or {}).get("sha1"),
+                  "problem": problem}
+            if info is not None:
+                note = "Management certificate provided by the installer: %s, SHA-1 %s" % (
+                    info.get("subject_cn") or ca["file_name"], info.get("sha1"))
+        seen = None
+        if d.fingerprint_sha1 and not (ca and ca.get("sha1") == d.fingerprint_sha1):
+            seen = ("The installer saw the management certificate with SHA-1 %s. Compare it "
+                    "with api fingerprint on the server." % d.fingerprint_sha1)
+        return {"server": d.server, "port": d.port, "server_type": d.server_type,
+                "domain": d.domain, "server_name": d.server_name, "gateway": d.gateway,
+                "fingerprint_sha1": d.fingerprint_sha1, "ca": ca, "ca_note": note,
+                "fingerprint_note": seen, "problems": list(d.problems)}
 
     # ------------------------------------------------------------------ demo log
 
@@ -703,6 +759,7 @@ def _status_payload(owner: Optional[Key], entry: Optional[_store.Entry]) -> Dict
         "moderation_on": moderation_on,
         "engine_busy": _store.session_busy(sess) if sess is not None else None,
     }
+    st["defaults"] = ctx.defaults_view()
     # Published and installed, with only an optional step (content moderation) left to do
     # by hand: the demo policy is live, so the demo is the next step.
     la = st.get("last_apply") if isinstance(st.get("last_apply"), dict) else {}
@@ -913,6 +970,7 @@ def _page_context(step: str) -> Dict[str, Any]:
                      "key_hint": mask_hint(key)},
         "gw_tracks": THREAT_TRACKS,
         "gw_idle_minutes": IDLE_MINUTES,
+        "gw_defaults": ctx.defaults_view(),
     }
 
 
@@ -982,6 +1040,10 @@ def api_connect():
     pem = _pem(data, "ca_pem")
     clear_ca = _bool(data, "clear_ca")
     local_ip = _ip(data, "local_ip", label="This server's IP address")
+    defaults = ctx.env_defaults()
+    env_server = bool(defaults.server) and defaults.applies_to(server)
+    if server_name is None and env_server and defaults.server_name:
+        server_name = defaults.server_name
 
     owner = _owner(create=True)
     if owner is None:
@@ -1002,7 +1064,22 @@ def api_connect():
     if local_ip:
         sess.local_ip = local_ip
         sess.log.info("web", "local IP set by the user", local_ip=local_ip)
+    warnings: List[str] = []
     ca_file = str(entry.mgmt_ca) if entry.mgmt_ca else None
+    ca_source = "upload" if ca_file else None
+    if ca_file is None and not pem and not clear_ca:
+        # The installer's CA, read in place: never copied to the per-session CA folder,
+        # never deleted (SessionStore.protected).
+        env_ca, problem = ctx.env_ca()
+        if env_ca is not None:
+            ca_file = str(env_ca["path"])
+            ca_source = "installer"
+            sess.log.info("web", "using the management CA provided by the installer",
+                          ca_file=ca_file, sha1=env_ca.get("sha1"))
+        elif problem:
+            warnings.append("The management certificate provided by the installer (%s) was "
+                            "not used: %s." % (_envdefaults.ENV_CA_FILE, problem))
+            sess.log.warn("web", "the installer's management CA was not used", reason=problem)
     previous = _last_connection(sess)
     extra: Dict[str, Any] = {}
     if ca_file and _accepts(sess.connect, "remember_ca"):
@@ -1014,7 +1091,12 @@ def api_connect():
         _forget_web_ca(sess, server, previous, ctx.ca_dir)
     info = _web_connection(info)
     detected = str(info.get("server_type") or "unknown")
-    warnings: List[str] = []
+    seen = str(info.get("fingerprint_sha1") or "").upper()
+    if (defaults.fingerprint_sha1 and defaults.applies_to(server) and seen
+            and seen != defaults.fingerprint_sha1):
+        warnings.append("The certificate's SHA-1 (%s) differs from the one the installer saw "
+                        "(%s). Compare it with api fingerprint on the server."
+                        % (seen, defaults.fingerprint_sha1))
     if server_type == "MDS" and detected == "SMS":
         warnings.append("This is a Security Management Server, not a Multi-Domain Server."
                         + (" The domain was ignored." if domain else ""))
@@ -1029,7 +1111,8 @@ def api_connect():
             discover_error = error_dict(exc, log_path=_log_path(entry))
             ctx.store.remember_error(owner, discover_error)
     payload = _status_payload(owner, entry)
-    payload.update({"connect": info, "warnings": warnings, "discover_error": discover_error})
+    payload.update({"connect": info, "warnings": warnings, "discover_error": discover_error,
+                    "ca_source": ca_source})
     return _ok(payload)
 
 

@@ -269,6 +269,8 @@ Management server options (`setup`, `preflight`, `plan`, `apply`, `demo`, `rollb
 | `--server-name NAME` | Name in the management certificate when it differs from `--server` |
 | `--gateway NAME` | Target gateway or cluster |
 
+Defaults for these options can come from the environment (`AIGUARD_MGMT_SERVER` and the others, see [5.6](#56-defaults-from-the-environment)); a flag always wins.
+
 Demo policy options (`setup`, `plan`, `apply`):
 
 | Option | Meaning |
@@ -536,6 +538,25 @@ Every error is printed the same way, with the log line that has the full request
   Details       log line 6 · /home/demo/.aiguard/logs/2026-09-30_101500.log
 ```
 
+### 5.6 Defaults from the environment
+
+A lab installer can write the management connection into `.env`. The web console's container gets it with `docker run --env-file .env` (`scripts/lab_run_web.sh` does this), and the CLI run with `docker exec` in the same container sees the same values. The presenter then only types the API key or password. All variables are optional; empty means not set. None of them is a secret.
+
+| Variable | Same as | Meaning |
+|---|---|---|
+| `AIGUARD_MGMT_SERVER` | `--server`, Address | Management server address (IP or name) |
+| `AIGUARD_MGMT_PORT` | `--port`, Port | Management API port (default 443) |
+| `AIGUARD_MGMT_SERVER_NAME` | `--server-name`, Name in the certificate | Name to verify the management certificate against |
+| `AIGUARD_MGMT_TYPE` | `--server-type`, Server type | `SMS` or `MDS` |
+| `AIGUARD_MGMT_DOMAIN` | `--domain`, Domain | MDS domain |
+| `AIGUARD_MGMT_CA_FILE` | `--ca-file`, Management CA certificate | PEM file (path inside the container) with the CA for the management connection |
+| `AIGUARD_GATEWAY` | `--gateway`, the gateway table | Gateway or cluster to pre-select after discovery |
+| `AIGUARD_MGMT_FINGERPRINT_SHA1` | (shown only) | The certificate SHA-1 the installer saw, to compare with `api fingerprint` on the server |
+
+**CLI.** A flag always wins. When a flag is not given, the variable is used before the remembered last run and before asking; an empty flag (`--domain ""`) means none. `setup` shows the values as the default answers (press Enter to take them). Port, server type, domain and certificate name apply only when the server is `AIGUARD_MGMT_SERVER` (or that variable is empty); the CA file and the gateway apply to any server, and a gateway the server does not list is ignored with a warning. `AIGUARD_MGMT_CA_FILE` is checked like `--ca-file` (missing, not a file, not PEM): a file that cannot be used stops the command before anything is sent, with an error that names the variable. It is used for the management connection only; the provider connections still use `--outbound-ca`. A value that is not valid (a port that is not a number, a type other than SMS or MDS) is ignored with a warning. `aiguard status` lists the values in use.
+
+**Web console.** The Connect page is pre-filled with the address, port, server type, domain and certificate name, and anything typed there wins. When `AIGUARD_MGMT_CA_FILE` is a readable certificate file without a private key, Certificate trust shows "Management certificate provided by the installer: subject name, SHA-1 fingerprint" (read from the file) and Connect uses it when no CA was pasted for this session and **Forget the CA uploaded earlier** is not ticked. The file is read where it is: it is never copied into `instance/aiguard/ca/` and never deleted on disconnect, sign-out or expiry. When the connection's address is `AIGUARD_MGMT_SERVER` and the certificate name is left empty, `AIGUARD_MGMT_SERVER_NAME` is used. After discovery `AIGUARD_GATEWAY` is selected in the gateway table when the server lists it. `GET /gateway/api/status` returns these values as `defaults` (the CA by file name only, plus its subject and SHA-1). A certificate SHA-1 that differs from `AIGUARD_MGMT_FINGERPRINT_SHA1` is shown as a warning after connecting, in both the console and the CLI.
+
 <a id="web-console"></a>
 ## 6. Web console
 
@@ -559,7 +580,8 @@ Behaviour to know:
 - **Shutdown.** On SIGTERM (`docker stop`) a running publish or install gets up to 8 seconds; then what is still unpublished is discarded, an interrupted change's rollback point is marked `publish-unknown` (see [7](#7-what-the-kit-changes-and-rollback)), and every session logs out. Give the container at least 15 seconds (`docker-compose.yml` sets `stop_grace_period: 15s`).
 - **Idle timeout.** A session with no activity for 60 minutes is closed: Management API logout, keys forgotten, uploaded CA files deleted. A session with a running job is never expired. Rollback points stay in `state.json`.
 - **Keys from Settings.** OpenAI, Anthropic, Gemini and Azure OpenAI keys saved on the Settings page are reused for the demo prompts (decrypted in memory). A Lakera key saved there can be used as the Guard API key, and also labels blocked prompts with a detector category.
-- **Uploaded CA files** are saved under `instance/aiguard/ca/` with mode 0600 and deleted on disconnect or expiry. Files with a private key are refused.
+- **Uploaded CA files** are saved under `instance/aiguard/ca/` with mode 0600 and deleted on disconnect or expiry. Files with a private key are refused. The installer's `AIGUARD_MGMT_CA_FILE` is read in place and never deleted.
+- **Defaults from the environment.** `AIGUARD_MGMT_SERVER`, `AIGUARD_MGMT_PORT`, `AIGUARD_MGMT_TYPE`, `AIGUARD_MGMT_DOMAIN`, `AIGUARD_MGMT_SERVER_NAME`, `AIGUARD_MGMT_CA_FILE` and `AIGUARD_GATEWAY` pre-fill Connect and pre-select the gateway (see [5.6](#56-defaults-from-the-environment)).
 - **Logs and reports** go to `AIGUARD_HOME` (default `logs/aiguard/` in the app folder).
 - **Behind NAT or in Docker.** With bridge networking the gateway sees the Docker host's address, not the container's. Set `AIGUARD_LOCAL_IP` (in `.env` for Docker) to the address the gateway sees, or fill in Connect > Network address translation for one session. The host object, the default `client` scope and log matching then use it (see [4.7](#47-route-the-demo-computer-through-the-gateway)).
 - **Reverse proxy.** `nginx/nginx.conf` gives `/gateway/` 300-second read timeouts; publish and install run as background jobs the page polls. Run the bundled nginx with `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` (`make prod`): that file sets `TRUSTED_PROXY_HOPS=1` for the app and publishes the app port on loopback only, so the sign-in limit (10 attempts per minute) and the sign-in log count each client, not the proxy. Behind a proxy of your own set `TRUSTED_PROXY_HOPS` to the number of proxies yourself, and make sure nothing else can reach the app port; with `0` (the default) every user behind the proxy shares one sign-in limit. State-changing requests must come from exactly the app's origin (scheme, host and port). The bundled nginx passes the browser's host and port in `X-Forwarded-Host $http_host`; a proxy of your own should do the same, or list the public origin in `APP_ORIGIN`.
@@ -568,9 +590,9 @@ JSON API (all require sign-in; POST bodies must be JSON objects; cross-site requ
 
 | Method and path | Body | Returns |
 |---|---|---|
-| `POST /gateway/api/connect` | server, port, server_type, domain, auth (`api-key` or `password`), api_key or user + password, ca_pem?, server_name?, local_ip? | connection status |
+| `POST /gateway/api/connect` | server, port, server_type, domain, auth (`api-key` or `password`), api_key or user + password, ca_pem?, clear_ca?, server_name?, local_ip? | connection status, plus `ca_source` (`upload`, `installer` or null); without ca_pem and clear_ca it uses `AIGUARD_MGMT_CA_FILE` |
 | `POST /gateway/api/domain` | domain | switch MDS domain with the same login |
-| `GET /gateway/api/status` | | session status and current job |
+| `GET /gateway/api/status` | | session status, current job and `defaults` (from the environment, no secrets) |
 | `POST /gateway/api/gateway` | name | selected gateway |
 | `POST /gateway/api/preflight` | | job |
 | `POST /gateway/api/outbound-ca` | ca_pem, or clear `true`, or from_management `true` | trust the outbound CA for the demo prompts; `from_management` reads its public certificate from the management server (`show-outbound-inspection-certificate`, Management API 2 or later; never the PKCS#12 with its key) |

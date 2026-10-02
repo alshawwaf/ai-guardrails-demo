@@ -768,3 +768,135 @@ def test_demo_shows_the_last_policy_install_before_the_first_prompt(mgmt, pki, f
                     conn(good, pki), factory)
     assert re.search(r"Last policy install\s+The last policy installation on HQ-GW succeeded",
                      con.text), con.text
+
+
+# --------------------------------------------------------------------------- environment defaults
+# (AIGUARD_MGMT_* / AIGUARD_GATEWAY written to .env by the lab installer, aiguard/envdefaults.py)
+
+
+def _installer_ca(tmp_path, pki):
+    path = tmp_path / "installer" / "mgmt-ca.pem"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(Path(pki.ca_pem_path).read_text(encoding="ascii"), encoding="ascii")
+    return path
+
+
+def _two_gateways():
+    return [lab_gateway(), make_gateway("WAN-GW", "10.2.2.2")]
+
+
+def test_env_defaults_are_used_when_flags_are_not_given(mgmt, pki, factory, keys, aiguard_home,
+                                                       monkeypatch, tmp_path):
+    srv = mgmt(gateways=_two_gateways())
+    ca = _installer_ca(tmp_path, pki)
+    monkeypatch.setenv("AIGUARD_MGMT_SERVER", "127.0.0.1")
+    monkeypatch.setenv("AIGUARD_MGMT_PORT", str(srv.port))
+    monkeypatch.setenv("AIGUARD_MGMT_CA_FILE", str(ca))
+    monkeypatch.setenv("AIGUARD_GATEWAY", "WAN-GW")
+    code, con = run(["preflight", "--api-key-env", "AIG_TEST_MGMT_KEY"], factory)
+    out = con.text
+    assert code in (cli.EXIT_OK, cli.EXIT_BLOCKED), out
+    assert re.search(r"CA file\s+%s\s+from AIGUARD_MGMT_CA_FILE" % re.escape(str(ca)), out), out
+    assert re.search(r"Gateway\s+WAN-GW", out), out
+    assert not any("Target gateway" in p for p in con.prompts)   # two gateways, not asked
+    last = json.loads((aiguard_home / "state.json").read_text(encoding="utf-8"))["last"]
+    assert last["server"] == "127.0.0.1" and last["port"] == srv.port
+    log = latest_log(aiguard_home).read_text(encoding="utf-8")
+    assert "defaults from the environment" in log and "AIGUARD_MGMT_CA_FILE" in log
+    assert_no_secrets(keys, out, all_files_text(aiguard_home))
+    # status shows them (and what was ignored)
+    monkeypatch.setenv("AIGUARD_MGMT_TYPE", "cloud")
+    code, con = run(["status"], factory)
+    out = con.text
+    assert code == cli.EXIT_OK, out
+    assert re.search(r"Defaults from the environment\s+127\.0\.0\.1:%d .*gateway WAN-GW"
+                     % srv.port, out), out
+    assert re.search(r"CA file \(environment\)\s+%s" % re.escape(str(ca)), out), out
+    assert "AIGUARD_MGMT_TYPE must be SMS or MDS: ignored" in out
+
+
+def test_flags_override_env_defaults(mgmt, pki, factory, keys, aiguard_home, monkeypatch,
+                                     tmp_path):
+    srv = mgmt(gateways=_two_gateways())
+    # every environment value here would fail; the flags must win over each one
+    monkeypatch.setenv("AIGUARD_MGMT_SERVER", "127.0.0.1")
+    monkeypatch.setenv("AIGUARD_MGMT_PORT", "1")
+    monkeypatch.setenv("AIGUARD_MGMT_SERVER_NAME", "mgmt.wrong.example")
+    monkeypatch.setenv("AIGUARD_MGMT_CA_FILE", str(tmp_path / "missing.pem"))
+    monkeypatch.setenv("AIGUARD_MGMT_DOMAIN", "No-Such-Domain")
+    monkeypatch.setenv("AIGUARD_GATEWAY", "WAN-GW")
+    code, con = run(["preflight"] + conn(srv, pki) +
+                    ["--server-name", "localhost", "--domain", "", "--gateway", "HQ-GW"], factory)
+    out = con.text
+    assert code in (cli.EXIT_OK, cli.EXIT_BLOCKED), out
+    assert re.search(r"Gateway\s+HQ-GW", out) and "AIGUARD_MGMT_CA_FILE" not in out, out
+    login = [c for c in srv.calls if c[0] == "login"]
+    assert login and "domain" not in (login[0][1] or {})
+    # another --server: the port, name and domain of AIGUARD_MGMT_SERVER do not apply
+    monkeypatch.setenv("AIGUARD_MGMT_SERVER", "10.9.9.9")
+    monkeypatch.delenv("AIGUARD_MGMT_CA_FILE")
+    code, con = run(["preflight", "--server", "127.0.0.1", "--port", str(srv.port),
+                     "--ca-file", pki.ca_pem_path, "--api-key-env", "AIG_TEST_MGMT_KEY"],
+                    factory)
+    out = con.text
+    assert code in (cli.EXIT_OK, cli.EXIT_BLOCKED), out
+    assert re.search(r"Gateway\s+WAN-GW", out), out          # the gateway still applies
+
+
+@pytest.mark.parametrize("kind, needle", [
+    ("missing", "CA file not found"),
+    ("directory", "CA file is not a file"),
+    ("not-pem", "is not a PEM certificate"),
+])
+def test_invalid_env_ca_file_is_a_clear_error(kind, needle, mgmt, pki, factory, keys,
+                                              aiguard_home, monkeypatch, tmp_path):
+    srv = mgmt()
+    path = tmp_path / "mgmt-ca.pem"
+    if kind == "directory":
+        path.mkdir()
+    elif kind == "not-pem":
+        path.write_text("this is not a certificate\n", encoding="ascii")
+    monkeypatch.setenv("AIGUARD_MGMT_CA_FILE", str(path))
+    code, con = run(["preflight", "--server", "127.0.0.1", "--port", str(srv.port),
+                     "--api-key-env", "AIG_TEST_MGMT_KEY", "--gateway", "HQ-GW"], factory)
+    out = con.text
+    assert code == cli.EXIT_ERROR, out
+    assert "The CA file in AIGUARD_MGMT_CA_FILE cannot be used: " in out, out
+    assert needle in out, out
+    assert "set in .env by the lab installer" in out
+    assert "Or pass --ca-file <file.pem>" in out and "No connection was made." in out
+    assert srv.call_names() == []                      # stopped before any request
+    assert_no_secrets(keys, out, all_files_text(aiguard_home))
+    # --ca-file wins over the broken variable
+    code, con = run(["preflight"] + conn(srv, pki) + ["--gateway", "HQ-GW"], factory)
+    assert code in (cli.EXIT_OK, cli.EXIT_BLOCKED), con.text
+
+
+def test_setup_wizard_offers_env_values_as_default_answers(mgmt, pki, factory, keys,
+                                                          aiguard_home, monkeypatch, tmp_path):
+    srv = mgmt(gateways=_two_gateways())
+    ca = _installer_ca(tmp_path, pki)
+    monkeypatch.setenv("AIGUARD_MGMT_SERVER", "127.0.0.1")
+    monkeypatch.setenv("AIGUARD_MGMT_PORT", str(srv.port))
+    monkeypatch.setenv("AIGUARD_MGMT_TYPE", "MDS")
+    monkeypatch.setenv("AIGUARD_MGMT_CA_FILE", str(ca))
+    monkeypatch.setenv("AIGUARD_GATEWAY", "WAN-GW")
+    # Enter on server type, address, port and gateway: the environment's answers
+    code, con = run(["setup", "--api-key-env", "AIG_TEST_MGMT_KEY"] + AI_ARGS, factory,
+                    answers=["", "", "", ""])
+    out = con.text
+    prompts = con.prompts
+    assert any("Server type" in p and "› MDS" in p for p in prompts), prompts
+    assert any("Management address" in p and "[127.0.0.1]" in p for p in prompts), prompts
+    assert any("Port" in p and "[%d]" % srv.port in p for p in prompts), prompts
+    assert any("Target gateway" in p and "› WAN-GW" in p for p in prompts), prompts
+    assert re.search(r"Gateway\s+WAN-GW", out), out
+    assert "the server reports SMS" in out              # the answer is checked after login
+    assert writes(srv) == []                            # nothing approved
+    assert_no_secrets(keys, out, all_files_text(aiguard_home))
+    # a flag is not asked again, whatever the environment says
+    code, con = run(["setup", "--server-type", "sms", "--gateway", "HQ-GW"] + conn(srv, pki)
+                    + AI_ARGS, factory, answers=[])
+    assert not any("Server type" in p or "Target gateway" in p for p in con.prompts), con.prompts
+    assert re.search(r"Gateway\s+HQ-GW", con.text), con.text
+    assert writes(srv) == []

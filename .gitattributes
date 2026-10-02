@@ -1,2 +1,4 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+# Shell scripts must keep LF endings (they run on Linux lab hosts and in the image)
+*.sh text eol=lf

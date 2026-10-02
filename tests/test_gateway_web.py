@@ -1493,3 +1493,228 @@ def test_outbound_ca_upload_is_undone_when_the_engine_refuses_it(monkeypatch, tm
     assert entry.outbound_ca == first and second in entry.retired and first not in entry.retired
     st.drop(entry.key)
     assert not first.exists() and not second.exists()
+
+
+# --------------------------------------------------------------------------- environment defaults
+# (AIGUARD_MGMT_* / AIGUARD_GATEWAY written to .env by the lab installer, aiguard/envdefaults.py)
+
+
+def _installer_ca(tmp_path, pki, name="installer-mgmt-ca.pem"):
+    """A copy of the test CA where an installer would save it (never the shared file)."""
+    path = tmp_path / "installer" / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(Path(pki.ca_pem_path).read_text(encoding="ascii"), encoding="ascii")
+    return path
+
+
+def test_connect_page_prefills_env_defaults_with_escaping(logged_in_client, clean_store,
+                                                          monkeypatch, pki, tmp_path):
+    ca = _installer_ca(tmp_path, pki)
+    seen = "12:34:" + ":".join(["AB"] * 18)
+    monkeypatch.setenv("AIGUARD_MGMT_SERVER", "mgmt.lab.example")
+    monkeypatch.setenv("AIGUARD_MGMT_PORT", "4434")
+    monkeypatch.setenv("AIGUARD_MGMT_TYPE", "mds")
+    monkeypatch.setenv("AIGUARD_MGMT_DOMAIN", 'Lab"><script>alert(1)</script>')
+    monkeypatch.setenv("AIGUARD_MGMT_SERVER_NAME", "mgmt-cert.lab.example")
+    monkeypatch.setenv("AIGUARD_GATEWAY", 'GW-<b>"1')
+    monkeypatch.setenv("AIGUARD_MGMT_CA_FILE", str(ca))
+    monkeypatch.setenv("AIGUARD_MGMT_FINGERPRINT_SHA1", seen.replace(":", "").lower())
+    html = logged_in_client.get("/gateway/connect").get_data(as_text=True)
+    assert 'id="gw-server" class="input-field gw-mono"' in html
+    assert 'value="mgmt.lab.example"' in html and 'value="4434"' in html
+    assert 'value="mgmt-cert.lab.example"' in html
+    assert 'data-default-server-type="MDS"' in html
+    assert re.search(r'class="gw-seg-btn active" data-server-type="MDS"[^>]*aria-checked="true"',
+                     html)
+    assert re.search(r'data-gw="domain-group">', html)          # shown (not hidden) for MDS
+    # autoescaped: the values cannot break out of their attributes
+    assert "<script>alert(1)</script>" not in html and "<b>" not in html
+    assert 'value="Lab&#34;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"' in html
+    assert 'data-default-gateway="GW-&lt;b&gt;&#34;1"' in html
+    # the installer's CA: subject CN and SHA-1 read from the file, by name only
+    assert ("Management certificate provided by the installer: %s, SHA-1 %s"
+            % (pki.ca_cn, pki.ca_sha1)) in html
+    assert "The installer saw the management certificate with SHA-1 %s" % seen in html
+    assert str(ca.parent) not in html
+    # the same display-safe facts in status
+    data = logged_in_client.get("/gateway/api/status").get_json()
+    d = data["defaults"]
+    assert d["server"] == "mgmt.lab.example" and d["port"] == 4434 and d["server_type"] == "MDS"
+    assert d["gateway"] == 'GW-<b>"1' and d["server_name"] == "mgmt-cert.lab.example"
+    assert d["ca"] == {"file_name": ca.name, "usable": True, "subject_cn": pki.ca_cn,
+                       "sha1": pki.ca_sha1, "problem": None}
+    assert d["fingerprint_sha1"] == seen and d["problems"] == []
+    assert str(ca.parent) not in json.dumps(data)
+
+
+def test_connect_page_without_env_defaults_is_unchanged(logged_in_client, clean_store):
+    html = logged_in_client.get("/gateway/connect").get_data(as_text=True)
+    assert 'value="443"' in html and 'data-default-server-type="SMS"' in html
+    assert 'class="gw-seg-btn active" data-server-type="SMS"' in html
+    assert 'data-gw="domain-group" hidden' in html
+    assert 'data-default-gateway=""' in html
+    assert "provided by the installer" not in html and 'data-gw="defaults-problems"' not in html
+    d = logged_in_client.get("/gateway/api/status").get_json()["defaults"]
+    assert d["server"] is None and d["ca"] is None and d["gateway"] is None
+
+
+def test_connect_page_reports_unusable_env_defaults(logged_in_client, clean_store, monkeypatch,
+                                                    pki, tmp_path):
+    keyed = tmp_path / "with-key.pem"
+    keyed.write_text(Path(pki.ca_pem_path).read_text(encoding="ascii")
+                     + "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n",
+                     encoding="ascii")
+    monkeypatch.setenv("AIGUARD_MGMT_CA_FILE", str(keyed))
+    monkeypatch.setenv("AIGUARD_MGMT_PORT", "http")
+    monkeypatch.setenv("AIGUARD_MGMT_SERVER", "10.1.1.1; rm -rf /")
+    html = logged_in_client.get("/gateway/connect").get_data(as_text=True)
+    assert 'value="443"' in html and "rm -rf" not in html
+    assert "AIGUARD_MGMT_PORT is not a port number from 1 to 65535: ignored" in html
+    assert "AIGUARD_MGMT_SERVER is not a valid management address: ignored" in html
+    assert "The management certificate provided by the installer is not used" in html
+    assert "contains a private key" in html and "BEGIN PRIVATE KEY" not in html
+    d = logged_in_client.get("/gateway/api/status").get_json()["defaults"]
+    assert d["ca"]["usable"] is False and "private key" in d["ca"]["problem"]
+
+
+def test_connect_uses_the_env_ca_when_none_was_uploaded(logged_in_client, clean_store,
+                                                       engine_factory, mgmt, pki, monkeypatch,
+                                                       tmp_path):
+    srv = mgmt()
+    ca = _installer_ca(tmp_path, pki)
+    body = {"server": "127.0.0.1", "port": srv.port, "api_key": fake_key("fake-mgmt-")}
+    # without it the test CA is not trusted: the connection is refused (verification is on)
+    resp = logged_in_client.post("/gateway/api/connect", json=body)
+    assert resp.status_code == 502, resp.get_data(as_text=True)
+    monkeypatch.setenv("AIGUARD_MGMT_CA_FILE", str(ca))
+    monkeypatch.setenv("AIGUARD_MGMT_SERVER", "127.0.0.1")
+    monkeypatch.setenv("AIGUARD_MGMT_FINGERPRINT_SHA1", "00" * 20)   # not what the server has
+    resp = logged_in_client.post("/gateway/api/connect", json=body)
+    data = resp.get_json()
+    assert resp.status_code == 200, data
+    assert data["connected"] is True and data["ca_source"] == "installer"
+    assert data["web"]["mgmt_ca"] is False                 # nothing was uploaded
+    assert engine_factory[-1].client.ca_file == str(ca)    # read in place
+    assert list(Path(clean_store.store.ca_dir).glob("*.pem")) == []   # never copied
+    assert any("differs from the one the installer saw" in w for w in data["warnings"])
+    # disconnect: the installer's file stays
+    assert logged_in_client.post("/gateway/api/disconnect", json={}).status_code == 200
+    assert ca.is_file()
+    # clear_ca: no CA at all for this connect (the installer's is not used either)
+    resp = logged_in_client.post("/gateway/api/connect", json=dict(body, clear_ca=True))
+    assert resp.status_code == 502
+    # an uploaded CA wins over the installer's
+    resp = logged_in_client.post("/gateway/api/connect", json=dict(
+        body, ca_pem=Path(pki.ca_pem_path).read_text(encoding="ascii")))
+    data = resp.get_json()
+    assert resp.status_code == 200 and data["ca_source"] == "upload" and data["web"]["mgmt_ca"]
+    assert engine_factory[-1].client.ca_file != str(ca)
+    assert logged_in_client.post("/gateway/api/disconnect", json={}).status_code == 200
+    assert list(Path(clean_store.store.ca_dir).glob("*.pem")) == [] and ca.is_file()
+    # idle expiry closes the session: the installer's file stays
+    resp = logged_in_client.post("/gateway/api/connect", json=body)
+    assert resp.status_code == 200 and resp.get_json()["ca_source"] == "installer"
+    store = clean_store.store
+    old_idle = store.idle_seconds
+    store.idle_seconds = -1.0
+    try:
+        assert store.sweep() == 1
+    finally:
+        store.idle_seconds = old_idle
+    assert store.count() == 0 and ca.is_file()
+
+
+def test_store_never_deletes_the_env_ca_file(monkeypatch, tmp_path, pki):
+    from gateway_mode import store
+    from gateway_mode.routes import GatewayContext
+
+    now = [1000.0]
+    ca_dir = tmp_path / "ca"
+    ca_dir.mkdir()
+    pem = Path(pki.ca_pem_path).read_text(encoding="ascii")
+    # worst case: the installer saved it in the console's own CA folder, with the same
+    # kind of name the console uses for uploads
+    env_ca = ca_dir / ("%s.pem" % ("ab" * 16))
+    env_ca.write_text(pem, encoding="ascii")
+    stale = ca_dir / ("%s.pem" % ("cd" * 16))
+    stale.write_text(pem, encoding="ascii")
+    monkeypatch.setenv("AIGUARD_MGMT_CA_FILE", str(env_ca))
+    monkeypatch.setattr(store, "session_factory", lambda *, home: _StubSession())
+    ctx = GatewayContext(home=tmp_path / "home", ca_dir=ca_dir)
+    st = ctx.store
+    st.clock = lambda: now[0]
+    assert st.is_protected(env_ca) and st.is_protected(str(env_ca))
+    assert not st.is_protected(stale)
+    assert st.purge_ca_dir() == 1 and env_ca.is_file() and not stale.exists()
+    key = ("admin", "browser-id-0123456789")
+    entry = st.create(key)
+    uploaded = st.save_ca(entry, pem)
+    # even if the env file ended up referenced by an entry, closing never deletes it
+    entry.outbound_ca = env_ca
+    st.clear_ca(entry, "outbound")                    # retired
+    assert st.drop(key) is True                       # disconnect
+    assert env_ca.is_file() and not uploaded.exists()
+    entry = st.create(key)
+    entry.mgmt_ca = env_ca
+    now[0] += st.idle_seconds + 1
+    assert st.sweep() == 1                            # idle expiry
+    assert env_ca.is_file()
+    # a protected-path callable that fails protects everything
+    st2 = store.SessionStore(home=tmp_path / "home2", ca_dir=ca_dir,
+                             protected=lambda: 1 / 0)
+    assert st2.is_protected(stale)
+    ctx.shutdown(wait=0)
+
+
+def test_connect_server_name_defaults_from_env(logged_in_client, clean_store, engine_factory,
+                                               monkeypatch, pki, tmp_path):
+    from fakes import make_server_cert
+
+    # the certificate names "localhost" only (no IP SAN), like a portal certificate that
+    # names a host while the presenter connects by IP address
+    srv = FakeMgmtServer(make_server_cert(pki, san_ip=False),
+                         gateways=[lab_gateway()]).start()
+    try:
+        ca = _installer_ca(tmp_path, pki)
+        monkeypatch.setenv("AIGUARD_MGMT_CA_FILE", str(ca))
+        monkeypatch.setenv("AIGUARD_MGMT_SERVER_NAME", "localhost")
+        body = {"server": "127.0.0.1", "port": srv.port, "api_key": fake_key("fake-mgmt-")}
+        # AIGUARD_MGMT_SERVER is another address: the certificate name is not used
+        monkeypatch.setenv("AIGUARD_MGMT_SERVER", "10.9.9.9")
+        resp = logged_in_client.post("/gateway/api/connect", json=body)
+        assert resp.status_code == 502, resp.get_data(as_text=True)
+        monkeypatch.setenv("AIGUARD_MGMT_SERVER", "127.0.0.1")
+        resp = logged_in_client.post("/gateway/api/connect", json=body)
+        data = resp.get_json()
+        assert resp.status_code == 200, data
+        assert engine_factory[-1].client.server_name == "localhost"
+        # a name typed on the page wins
+        resp = logged_in_client.post("/gateway/api/connect",
+                                     json=dict(body, server_name="mgmt.wrong.example"))
+        assert resp.status_code == 502
+        assert logged_in_client.post("/gateway/api/disconnect", json={}).status_code == 200
+        assert srv.errors == []
+    finally:
+        srv.stop()
+
+
+def test_env_gateway_is_offered_for_preselection(logged_in_client, clean_store, engine_factory,
+                                                 mgmt, pki, monkeypatch):
+    srv = mgmt(gateways=[lab_gateway(), make_gateway("WAN-GW", "10.2.2.2")])
+    monkeypatch.setenv("AIGUARD_GATEWAY", "WAN-GW")
+    html = logged_in_client.get("/gateway/connect").get_data(as_text=True)
+    assert 'data-default-gateway="WAN-GW"' in html
+    data = _connect(Recorder(logged_in_client), srv, pki)
+    # listed second: the page pre-selects it instead of the first row
+    assert [g["name"] for g in data["gateways"]] == ["HQ-GW", "WAN-GW"]
+    assert data["defaults"]["gateway"] == "WAN-GW"
+    assert data["gateway"] is None                      # pre-selected on the page only
+    st = logged_in_client.get("/gateway/api/status").get_json()
+    assert st["defaults"]["gateway"] == "WAN-GW"
+    # the page script prefers it when the server lists it, with DOM APIs only
+    js = _JS.read_text(encoding="utf-8")
+    assert "dataset.defaultGateway" in js and "s.defaults" in js
+    assert "names.includes(preferred)" in js
+    assert 'form.dataset.defaultServerType === "MDS"' in js
+    assert "innerHTML" not in js and "insertAdjacentHTML" not in js
+    assert logged_in_client.post("/gateway/api/disconnect", json={}).status_code == 200

@@ -562,6 +562,14 @@ function initConnect(st) {
     renderGateways(s);
   };
 
+  // The gateway the lab installer named (AIGUARD_GATEWAY): status.defaults, else the
+  // page's data attribute. Pre-selected when the server lists it.
+  const defaultGateway = (s) => {
+    const d = (s && s.defaults) || {};
+    const card = gw("gateways-card");
+    return String(d.gateway || (card && card.dataset.defaultGateway) || "");
+  };
+
   const renderGateways = (s) => {
     const card = gw("gateways-card");
     const body = gw("gateways-body");
@@ -575,7 +583,11 @@ function initConnect(st) {
       body.append(el("tr", {}, el("td", { attrs: { colspan: "7" }, cls: "gw-muted",
         text: conn.server_type === "MDS" && !conn.domain ? "Pick a domain above to list its gateways." : "No gateways or clusters were found on this server." })));
     }
-    selected = (s.gateway && s.gateway.name) || selected || (gws[0] && gws[0].name) || null;
+    const names = gws.map((g) => g.name);
+    if (selected && !names.includes(selected)) selected = null;   // from another server or domain
+    const preferred = defaultGateway(s);
+    selected = (s.gateway && s.gateway.name) || selected
+      || (preferred && names.includes(preferred) ? preferred : null) || (gws[0] && gws[0].name) || null;
     gws.forEach((g) => {
       const radio = el("input", { attrs: { type: "radio", name: "gw-pick", value: g.name, "aria-label": `Select ${g.name}` } });
       radio.checked = g.name === selected;
@@ -652,6 +664,10 @@ function initConnect(st) {
       status = data;
       updateSidebar(status);
       renderConnection(status, data.connect);
+      if (data.ca_source === "installer") {
+        const line = gw("connect-result");
+        if (line && line.textContent) line.textContent += " · trusted with the installer's management CA";
+      }
       warningsList(gw("connect-warnings"), data.warnings);
       if (data.discover_error) renderError(gw("connect-error"), data.discover_error, { tone: "warn", label: "Gateways" });
     } catch (e) {
@@ -688,7 +704,7 @@ function initConnect(st) {
     }
   });
 
-  setType("SMS");
+  setType(form.dataset.defaultServerType === "MDS" ? "MDS" : "SMS");
   syncAuth();
   renderConnection(st);
 }

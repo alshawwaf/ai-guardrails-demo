@@ -1703,3 +1703,18 @@ def test_benchmark_counts_a_key_only_guard_as_configured():
     assert "guardrails_key_configured" in steps
     assert "config.guardrails_configured" not in steps
 
+
+
+def test_quoted_admin_values_from_docker_env_file_are_unquoted(app_module, monkeypatch):
+    """docker run --env-file keeps quotes around values; sign-in must still work."""
+    from werkzeug.security import generate_password_hash
+    monkeypatch.setenv("DEFAULT_ADMIN_EMAIL", "'quoted@example.com'")
+    monkeypatch.setenv("DEFAULT_ADMIN_PASSWORD_HASH", "'%s'" % generate_password_hash("s3cret-pass-123"))
+    email, pw_hash, password, problem = app_module.admin_login_config()
+    assert problem is None
+    assert email == "quoted@example.com"
+    assert app_module._password_matches("s3cret-pass-123", pw_hash, password)
+    monkeypatch.delenv("DEFAULT_ADMIN_PASSWORD_HASH")
+    monkeypatch.setenv("DEFAULT_ADMIN_PASSWORD", '"another-long-pass-456"')
+    email, pw_hash, password, problem = app_module.admin_login_config()
+    assert problem is None and password == "another-long-pass-456"
